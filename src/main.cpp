@@ -1,4 +1,5 @@
-
+#include <FEHIO.h>
+#include <Arduino.h>
 #include <FEHUtility.h>
 #include <FEHServo.h>
 #include <FEHLCD.h>
@@ -15,4 +16,5 @@
 void ERCMain()
 {
     TestGUI();
+    
 }
