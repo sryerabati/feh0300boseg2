@@ -1,10 +1,5 @@
-#include <FEHIO.h>
+#include <FEH.h>
 #include <Arduino.h>
-#include <FEHUtility.h>
-#include <FEHServo.h>
-#include <FEHLCD.h>
-#include "FEHMotor.h"
-
 
 
 // Declare things like Motors, Servos, etc. here
@@ -15,6 +10,9 @@
 
 void ERCMain()
 {
+    // Your code here!
+
+    // Or just use the TestGUI function
     TestGUI();
-    
+
 }
