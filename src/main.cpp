@@ -13,6 +13,27 @@ FEHMotor leftMotor(FEHMotor::Motor1, 9.0);
 DigitalEncoder left_encoder(FEHIO::Pin10);
 DigitalEncoder right_encoder(FEHIO::Pin8);
 
+void waitForTouchStart()
+{
+    int x;
+    int y;
+
+    LCD.Clear();
+    LCD.WriteLine("Tap screen to start Milestone 1!");
+
+    while(!LCD.Touch(&x, &y))
+    {
+        Sleep(50);
+    }
+
+    while(LCD.Touch(&x, &y))
+    {
+        Sleep(50);
+    }
+
+    LCD.Clear();
+}
+
 void moveBot(int distanceInches, int direction)
 {
     right_encoder.ResetCounts();
@@ -52,6 +73,7 @@ void turnRight(int percent, int counts)
 }
 void ERCMain()
 {
+    waitForTouchStart();
     
     moveBot(30, -1);
     Sleep(2500);
