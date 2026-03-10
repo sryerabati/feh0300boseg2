@@ -19,6 +19,9 @@ AnalogInputPin leftOpto(FEHIO::Pin3);
 AnalogInputPin middleOpto(FEHIO::Pin4);
 AnalogInputPin rightOpto(FEHIO::Pin5);
 
+boolean isRed = false;
+boolean isBlue = false;
+
 void waitForTouchStart(String message)
 {
     int x;
@@ -45,7 +48,7 @@ void waitForStartLight()
     LCD.Clear();
     LCD.WriteLine("Click Start Button, then wait for light!");
 
-    while(light_sensor.Value() > 3.5)
+    while(light_sensor.Value() > 0.5)
     {
         Sleep(50);
     }
@@ -266,10 +269,14 @@ void checkLight(){
     while (true) {
        if(light_sensor.Value() < .4) {
            clickRedButton();
+           isRed = true;
+           isBlue = false;
            break;
        }
        else if(light_sensor.Value() < .75) {
            clickBlueButton();
+           isBlue = true;
+           isRed = false;
            break;
        }
    }
@@ -294,6 +301,13 @@ void ERCMain()
     Sleep(1000);
     moveForward(4); //lineup to humidifier light
     checkLight(); // check cds cell to see if red or blue light, click corresponding button
+
+    If Blue:{
+        find way back to ramp from blue position}
+    else if Red{
+        find way back to ramp from red position}
+
+    Move back down ramp, no parts hanging behind
     
     //finish rest after this stuff works...
 
@@ -308,6 +322,7 @@ void ERCMain()
     LCD.WriteLine(middleOpto.Value());
     LCD.Write("Right Opto: ");
     LCD.WriteLine(rightOpto.Value());
+    Sleep(500);
    }
 
 
