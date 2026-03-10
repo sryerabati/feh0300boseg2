@@ -15,9 +15,9 @@ DigitalEncoder left_encoder(FEHIO::Pin10);
 DigitalEncoder right_encoder(FEHIO::Pin8);
 AnalogInputPin light_sensor(FEHIO::Pin1);
 
-AnalogInputPin leftOpto(FEHIO::Pin3);
-AnalogInputPin middleOpto(FEHIO::Pin4);
-AnalogInputPin rightOpto(FEHIO::Pin5);
+AnalogInputPin leftOpto(FEHIO::Pin14);
+AnalogInputPin middleOpto(FEHIO::Pin13);
+AnalogInputPin rightOpto(FEHIO::Pin12);
 
 boolean isRed = false;
 boolean isBlue = false;
@@ -314,16 +314,7 @@ void ERCMain()
     */
    
    
-   while(true){
-    LCD.Clear();
-    LCD.Write("Left Opto: ");
-    LCD.WriteLine(leftOpto.Value());
-    LCD.Write("Middle Opto: ");
-    LCD.WriteLine(middleOpto.Value());
-    LCD.Write("Right Opto: ");
-    LCD.WriteLine(rightOpto.Value());
-    Sleep(500);
-   }
+   followLine(50, 0.5);
 
 
 
