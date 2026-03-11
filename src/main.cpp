@@ -56,7 +56,7 @@ void waitForStartLight()
     LCD.Clear();
 }
 
-void moveForward(float distanceInches)
+void moveBackward(float distanceInches)
 {
     int direction = 1;
     right_encoder.ResetCounts();
@@ -71,7 +71,7 @@ void moveForward(float distanceInches)
     rightMotor.Stop();
 
 }
-void moveBackward(float distanceInches)
+void moveForward(float distanceInches)
 {
     int direction = -1;
     right_encoder.ResetCounts();
@@ -190,25 +190,17 @@ void turnRight45(int percent)
     leftMotor.Stop();
 
 }
-void followLine(int drivePercent, float threshold)
+void followLine(int drivePercent)
 {
-    (void)threshold; // threshold superseded by calibrated ranges below
 
-    int slowPercent = drivePercent / 2;
-    if(slowPercent < 10)
-    {
-        slowPercent = 10;
-    }
+    int slowPercent = 0.25*drivePercent;
+    
 
-    const int forwardLeft = -drivePercent;   // left motor spins negative to drive forward
-    const int forwardRight = drivePercent;   // right motor spins positive to drive forward
-    const int slowLeft = -slowPercent;
-    const int slowRight = slowPercent;
 
-    const float WHITE_MIN = 2.0f;
-    const float WHITE_MAX = 3.0f;
-    const float BLACK_MIN = 3.8f;
-    const float BLACK_MAX = 4.5f;
+    const int forwardLeft = drivePercent;   // left motor spins negative to drive forward
+    const int forwardRight = -drivePercent;   // right motor spins positive to drive forward
+    const int slowLeft = slowPercent;
+    const int slowRight = -slowPercent;
 
     auto inRange = [](float value, float min, float max)
     {
@@ -221,27 +213,24 @@ void followLine(int drivePercent, float threshold)
         const float middleValue = middleOpto.Value();
         const float rightValue = rightOpto.Value();
 
-        const bool leftOnWhite = inRange(leftValue, WHITE_MIN, WHITE_MAX);
-        const bool rightOnWhite = inRange(rightValue, WHITE_MIN, WHITE_MAX);
-        const bool middleOnBlack = inRange(middleValue, BLACK_MIN, BLACK_MAX);
-        const bool rightOnBlack = inRange(rightValue, BLACK_MIN, BLACK_MAX);
+        const bool leftOnWhite = inRange(leftValue, 2.0, 2.4);
+        const bool rightOnWhite = inRange(rightValue, 2.4, 2.9);
+        const bool middleOnBlack = inRange(middleValue, 4.1, 4.4);
+        const bool rightOnBlack = inRange(rightValue, 4.1, 4.5);
+        const bool leftOnGray = inRange(leftValue, 2.8, 3.25);
+        const bool rightOnGray = inRange(rightValue, 3.2, 3.65);
+        const bool leftOnBlack = inRange(leftValue, 4.1, 4.3);
 
-        LCD.Clear();
-        LCD.Write("Left: ");
-        LCD.Write(leftValue);
-        LCD.Write(" Middle: ");
-        LCD.Write(middleValue);
-        LCD.Write(" Right: ");
-        LCD.WriteLine(rightValue);
+        
 
-        if(!leftOnWhite && !rightOnWhite)
+        if(leftOnBlack && rightOnBlack)
         {
             leftMotor.Stop();
             rightMotor.Stop();
             break;
         }
 
-        if(leftOnWhite && middleOnBlack)
+        else if((leftOnWhite && rightOnWhite) || (middleOnBlack))
         {
             leftMotor.SetPercent(forwardLeft);
             rightMotor.SetPercent(forwardRight);
@@ -251,23 +240,16 @@ void followLine(int drivePercent, float threshold)
             leftMotor.SetPercent(forwardLeft);
             rightMotor.SetPercent(forwardRight);
         }
-        else if(!leftOnWhite)
-        {
-            leftMotor.SetPercent(slowLeft);
-            rightMotor.SetPercent(forwardRight);
-        }
-        else if(!middleOnBlack)
+        else if(leftOnGray)
         {
             leftMotor.SetPercent(forwardLeft);
             rightMotor.SetPercent(slowRight);
         }
-        else
+        else if(rightOnGray || leftOnBlack)
         {
-            leftMotor.SetPercent(forwardLeft);
+            leftMotor.SetPercent(slowLeft);
             rightMotor.SetPercent(forwardRight);
         }
-
-        Sleep(25);
     }
 
     leftMotor.Stop();
@@ -337,8 +319,24 @@ void ERCMain()
 
     */
    
-   
-   followLine(50, 0.5);
+    waitForTouchStart("Tap screen to start Milestone 2!"); // tap screen
+    waitForStartLight(); //checks if cds cell (red filter) detects red light
+    moveBackward(2.5); // clicks button
+    Sleep(250);
+    moveForward(2.5);
+    turnRight45(20);
+    moveForward(1);
+    turnRight45(20);
+    moveForward(1.5);
+    turnLeft45(20);
+    moveForward(24);
+    moveForward(3);
+    turnLeft90(20);
+    followLine(20);
+    moveForward(4);
+    checkLight();
+
+    
 
 
 
