@@ -192,6 +192,8 @@ void turnRight45(int percent)
 }
 void followLine(int drivePercent, float threshold)
 {
+    (void)threshold; // threshold superseded by calibrated ranges below
+
     int slowPercent = drivePercent / 2;
     if(slowPercent < 10)
     {
@@ -203,11 +205,26 @@ void followLine(int drivePercent, float threshold)
     const int slowLeft = -slowPercent;
     const int slowRight = slowPercent;
 
+    const float WHITE_MIN = 2.0f;
+    const float WHITE_MAX = 3.0f;
+    const float BLACK_MIN = 3.8f;
+    const float BLACK_MAX = 4.5f;
+
+    auto inRange = [](float value, float min, float max)
+    {
+        return value > min && value < max;
+    };
+
     while(true)
     {
         const float leftValue = leftOpto.Value();
         const float middleValue = middleOpto.Value();
         const float rightValue = rightOpto.Value();
+
+        const bool leftOnWhite = inRange(leftValue, WHITE_MIN, WHITE_MAX);
+        const bool rightOnWhite = inRange(rightValue, WHITE_MIN, WHITE_MAX);
+        const bool middleOnBlack = inRange(middleValue, BLACK_MIN, BLACK_MAX);
+        const bool rightOnBlack = inRange(rightValue, BLACK_MIN, BLACK_MAX);
 
         LCD.Clear();
         LCD.Write("Left: ");
@@ -217,30 +234,37 @@ void followLine(int drivePercent, float threshold)
         LCD.Write(" Right: ");
         LCD.WriteLine(rightValue);
 
-        if(leftValue > threshold && middleValue > threshold && rightValue > threshold)
+        if(!leftOnWhite && !rightOnWhite)
         {
+            leftMotor.Stop();
+            rightMotor.Stop();
             break;
         }
 
-        if(leftValue > threshold)
-        {
-            leftMotor.SetPercent(slowLeft);
-            rightMotor.SetPercent(forwardRight);
-        }
-        else if(middleValue > threshold)
+        if(leftOnWhite && middleOnBlack)
         {
             leftMotor.SetPercent(forwardLeft);
             rightMotor.SetPercent(forwardRight);
         }
-        else if(rightValue > threshold)
+        else if(leftOnWhite && rightOnBlack)
+        {
+            leftMotor.SetPercent(forwardLeft);
+            rightMotor.SetPercent(forwardRight);
+        }
+        else if(!leftOnWhite)
+        {
+            leftMotor.SetPercent(slowLeft);
+            rightMotor.SetPercent(forwardRight);
+        }
+        else if(!middleOnBlack)
         {
             leftMotor.SetPercent(forwardLeft);
             rightMotor.SetPercent(slowRight);
         }
         else
         {
-            leftMotor.Stop();
-            rightMotor.Stop();
+            leftMotor.SetPercent(forwardLeft);
+            rightMotor.SetPercent(forwardRight);
         }
 
         Sleep(25);
