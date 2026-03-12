@@ -65,7 +65,7 @@ void moveBackward(float distanceInches, int powerPercent = 40)
     int distanceCounts = (distanceInches * 318)/7.85; // Convert inches to encoder counts
     rightMotor.SetPercent(direction * powerPercent);
     leftMotor.SetPercent(-1* direction * powerPercent);
-    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < distanceCounts);
+    while(((left_encoder.Counts() + right_encoder.Counts()) / 2. < distanceCounts) && light_sensor.Value() > 1.2);
  
     leftMotor.Stop();
     rightMotor.Stop();
@@ -241,17 +241,17 @@ void turnLeft(int angle, int percent = 40)
 
 }
 
-void followLine(int drivePercent)
+void followLineBack(int drivePercent)
 {
 
-    int slowPercent = 0.25*drivePercent;
+    int slowPercent = 0.15*drivePercent;
     
 
 
-    const int forwardLeft = drivePercent;   // left motor spins negative to drive forward
-    const int forwardRight = -drivePercent;   // right motor spins positive to drive forward
-    const int slowLeft = slowPercent;
-    const int slowRight = -slowPercent;
+    const int backwardLeft = -drivePercent;   // left motor spins negative to drive forward
+    const int backwardRight = drivePercent;   // right motor spins positive to drive forward
+    const int slowLeft = -slowPercent;
+    const int slowRight = slowPercent;
 
     auto inRange = [](float value, float min, float max)
     {
@@ -264,17 +264,14 @@ void followLine(int drivePercent)
         const float middleValue = middleOpto.Value();
         const float rightValue = rightOpto.Value();
 
-        const bool leftOnWhite = inRange(leftValue, 2.0, 2.4);
-        const bool rightOnWhite = inRange(rightValue, 2.4, 2.9);
-        const bool middleOnBlack = inRange(middleValue, 4.1, 4.4);
-        const bool rightOnBlack = inRange(rightValue, 4.1, 4.5);
-        const bool leftOnGray = inRange(leftValue, 2.8, 3.25);
-        const bool rightOnGray = inRange(rightValue, 3.2, 3.65);
+        const bool leftOnWhite = inRange(leftValue, 2.0, 2.2);
+        const bool middleOnBlack = inRange(middleValue, 4.35, 4.55);
+        const bool leftOnGray = inRange(leftValue, 3.35, 3.65);
         const bool leftOnBlack = inRange(leftValue, 4.1, 4.3);
 
         
 
-        if((leftOnBlack && rightOnBlack) || (middleOnBlack && rightOnWhite) || (middleOnBlack && leftOnWhite))
+        if(light_sensor.Value() < 0.75)
         {
             leftMotor.Stop();
             rightMotor.Stop();
@@ -283,13 +280,18 @@ void followLine(int drivePercent)
 
         else if(leftOnWhite)
         {
-            leftMotor.SetPercent(forwardLeft);
-            rightMotor.SetPercent(forwardRight);
+            leftMotor.SetPercent(backwardLeft);
+            rightMotor.SetPercent(backwardRight);
         }
         else if(leftOnGray)
         {
-            leftMotor.SetPercent(forwardLeft);
+            leftMotor.SetPercent(backwardLeft);
             rightMotor.SetPercent(slowRight);
+        }
+        else if (leftOnBlack)
+        {
+            leftMotor.SetPercent(slowLeft);
+            rightMotor.SetPercent(backwardRight);
         }
     }
 
@@ -298,18 +300,18 @@ void followLine(int drivePercent)
 }
 
 void clickBlueButton(){
-    moveBackward(3); // back up from wall
+    moveForward(3); // back up from wall
     turnLeft45(20);
-    moveForward(4);
+    moveBackward(4);
     turnRight45(20);
-    moveForward(8);
+    moveBackward(8);
 }
 void clickRedButton(){
-    moveBackward(3); // back up from wall
+    moveForward(3); // back up from wall
     turnRight45(20);
-    moveForward(4);
+    moveBackward(4);
     turnLeft45(20);
-    moveForward(8);
+    moveBackward(8);
 }
 
 void checkLight(){
@@ -320,7 +322,7 @@ void checkLight(){
            isBlue = false;
            break;
        }
-       else if(light_sensor.Value() < .75) {
+       else if(light_sensor.Value() < 1.1) {
            clickBlueButton();
            isBlue = true;
            isRed = false;
@@ -335,10 +337,11 @@ void checkLight(){
    }
 }
 
-void oldERCMain(){
-    //waitForTouchStart("Tap screen to start Milestone 2!"); // tap screen
+void ERCMain()
+{
+
     waitForStartLight(); //checks if cds cell (red filter) detects red light
-    moveBackward(3, 50); // clicks button
+    moveForward(3, -50); // clicks button
     Sleep(250);
     
 
@@ -348,44 +351,18 @@ void oldERCMain(){
     turnRight45(20);
     moveForward(4);
     turnLeft(50, 20);
-    moveForward(36, 50);
+    moveForward(35.5, 50);
 
-    turnLeft(30, 20);
-    moveForward(1);
-    turnLeft(30, 20);
-    moveForward(1);
-    turnLeft(30, 20);
-    moveBackward(20);
+    turnRight90(20);
 
     Sleep(1000);
-    followLine(20);
-    moveForward(4);
+    moveBackward(2);
+    moveBackward(13);
+    Sleep(1000);
     checkLight();
+    moveForward(18);
+    turnLeft90(20);
+    moveBackward(36, 50);
+
+    
 }
-void ERCMain()
-{
-    
-    
-    waitForTouchStart("Tap screen to start Milestone 2!"); // tap screen
-    waitForStartLight(); //checks if cds cell (red filter) detects red light
-    moveBackward(3, 50); // clicks button
-    Sleep(250);
-    
-    waitForTouchStart("Tap screen to continue Milestone 2!"); // tap screen
-    moveForward(25, 50);
-
-    waitForTouchStart("Tap screen to continue Milestone 2!"); // tap screen
-    checkLight();
-    
-
-    
-    
-    
-
-    
-    
-
-
-
-   
-} 
