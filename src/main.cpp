@@ -316,7 +316,7 @@ void clickRedButton(){
 
 void checkLight(){
     while (true) {
-       if(light_sensor.Value() < .4) {
+       if(light_sensor.Value() < .6) {
            clickRedButton();
            isRed = true;
            isBlue = false;
@@ -360,7 +360,7 @@ void ERCMain()
     moveBackward(13);
     Sleep(1000);
     checkLight();
-    moveForward(18);
+    moveForward(20);
     turnLeft90(20);
     moveBackward(36, 50);
 
