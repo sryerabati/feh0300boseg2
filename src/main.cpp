@@ -262,7 +262,8 @@ void followLineBack(int drivePercent)
     {
         const float leftValue = leftOpto.Value();
         const float middleValue = middleOpto.Value();
-        const float rightValue = rightOpto.Value();
+        //const float rightValue = rightOpto.Value();
+        //right opto is broken
 
         const bool leftOnWhite = inRange(leftValue, 2.0, 2.2);
         const bool middleOnBlack = inRange(middleValue, 4.35, 4.55);
@@ -345,24 +346,24 @@ void ERCMain()
     Sleep(250);
     
 
-    moveForward(2.5);
-    turnRight45(20);
-    moveForward(1);
-    turnRight45(20);
-    moveForward(4);
-    turnLeft(50, 20);
-    moveForward(35.5, 50);
+    moveForward(2.5); // back up from button
+    turnRight45(20); // turn towards center of ramp
+    moveForward(1); //move towarde center of ramp
+    turnRight45(20); //align with ramp
+    moveForward(4); // go toward ramp
+    turnLeft(50, 20); // align with ramp
+    moveForward(35.5, 50); // move up ramp until intersection line
 
-    turnRight90(20);
+    turnRight90(20); // turn towards humidifier
 
     Sleep(1000);
-    moveBackward(2);
-    moveBackward(13);
+    moveBackward(2); //go toward humidifier
+    moveBackward(13); //go toward humidifier, checks if cds cell light is on
     Sleep(1000);
-    checkLight();
-    moveForward(20);
-    turnLeft90(20);
-    moveBackward(36, 50);
+    checkLight(); //if light is on, clicks correct button
+    moveForward(20); // move back down toward ramp
+    turnLeft90(20); // turn towards ramp
+    moveBackward(36, 50); //move back down ramp
 
     
 }
