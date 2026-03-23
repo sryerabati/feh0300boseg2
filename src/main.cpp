@@ -1,242 +1,130 @@
 #include <FEHLCD.h>
 #include <FEHIO.h>
 #include <FEHUtility.h>
-#include <FEHMotor.h>
 #include <FEHRCS.h>
 #include <FEHSD.h>
+#include <FEH.h>
 
-// RCS Delay time
-#define RCS_WAIT_TIME_IN_SEC 0.35
-
-// Shaft encoding counts for CrayolaBots
-#define COUNTS_PER_INCH 40.5
-#define COUNTS_PER_DEGREE 2.48
-
-// Defines for pulsing the robot
-#define PULSE_TIME 0.5
-#define PULSE_POWER 50
-
-// Define for the motor power
-#define POWER 30
-
-// Orientation of AruCo Code
-#define PLUS 0
-#define MINUS 1
-
-//Declarations for encoders & motors
-DigitalEncoder right_encoder(FEHIO::Pin8);
+FEHMotor rightMotor(FEHMotor::Motor0, 9.0);
+FEHMotor leftMotor(FEHMotor::Motor2, 9.0);
 DigitalEncoder left_encoder(FEHIO::Pin10);
-FEHMotor right_motor(FEHMotor::Motor0, 9.0);
-FEHMotor left_motor(FEHMotor::Motor3, 9.0);
-
-/*
- * Pulse forward a short distance using time
- */
-void pulse_forward(int percent, float seconds) 
-{
-    // Set both motors to desired percent
-    right_motor.SetPercent(percent);
-    left_motor.SetPercent(percent);
-
-    // Wait for the correct number of seconds
-    Sleep(seconds);
-
-    // Turn off motors
-    right_motor.Stop();
-    left_motor.Stop();
-}
-
-/*
- * Pulse counterclockwise a short distance using time
- */
-void pulse_counterclockwise(int percent, float seconds) 
-{
-    // Set both motors to desired percent
-    right_motor.SetPercent(percent);
-    left_motor.SetPercent(-percent);
-
-    // Wait for the correct number of seconds
-    Sleep(seconds);
-
-    // Turn off motors
-    right_motor.Stop();
-    left_motor.Stop();
-}
-
-/*
- * Move forward using shaft encoders where percent is the motor percent and counts is the distance to travel
- */
-void move_forward(int percent, int counts) //using encoders
-{
-    // Reset encoder counts
-    right_encoder.ResetCounts();
-    left_encoder.ResetCounts();
-
-    // Set both motors to desired percent
-    right_motor.SetPercent(percent);
-    left_motor.SetPercent(percent);
-
-    // While the average of the left and right encoder are less than counts,
-    // keep running motors
-    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);
-
-    // Turn off motors
-    right_motor.Stop();
-    left_motor.Stop();
-}
-
-/*
- * Turn counterclockwise using shaft encoders where percent is the motor percent and counts is the distance to travel
- */
-void turn_counterclockwise(int percent, int counts) 
-{
-    // Reset encoder counts
-    right_encoder.ResetCounts();
-    left_encoder.ResetCounts();
-
-    // Set both motors to desired percent
-    right_motor.SetPercent(percent);
-    left_motor.SetPercent(-percent);
-
-    // While the average of the left and right encoder are less than counts,
-    // keep running motors
-    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);
-
-    // Turn off motors
-    right_motor.Stop();
-    left_motor.Stop();
-}
-
-/* 
- * Use RCS to move to the desired x_coordinate based on the orientation of the AruCo code
- */
-void check_x(float x_coordinate, int orientation)
-{
-    // Determine the direction of the motors based on the orientation of the AruCo code 
-    int power = PULSE_POWER;
-    if(orientation == MINUS){
-        power = -PULSE_POWER;
-    }
-
-    RCSPose* pose = RCS.RequestPosition();
-
-    // Check if receiving proper RCS coordinates and whether the robot is within an acceptable range
-    for (int i = 0; i < 10; i++) {
-        if(pose != nullptr && (pose->x < x_coordinate - 1 || pose->x > x_coordinate + 1))
-        {
-            if(orientation == MINUS)
-            {
-                // Pulse the motors for a short duration in the correct direction
-                pulse_forward(-power, PULSE_TIME);
-            }
-            else if(orientation == PLUS)
-            {
-                // Pulse the motors for a short duration in the correct direction
-                pulse_forward(power, PULSE_TIME);
-            }
-            Sleep(RCS_WAIT_TIME_IN_SEC);
-
-            pose = RCS.RequestPosition();
-        }
-}
-}
-
-
-/* 
- * Use RCS to move to the desired y_coordinate based on the orientation of the QR code
- */
-void check_y(float y_coordinate, int orientation)
-{
-    // Determine the direction of the motors based on the orientation of the QR code
-    int power = PULSE_POWER;
-    if(orientation == MINUS){
-        power = -PULSE_POWER;
-    }
-
-    RCSPose* pose = RCS.RequestPosition();
-
-    // Check if receiving proper RCS coordinates and whether the robot is within an acceptable range
-    for (int i = 0; i < 10; i++) {
-        while(pose != nullptr && (pose->y < y_coordinate - 1 || pose->y > y_coordinate + 1))
-        {
-            if(orientation == MINUS)
-            {
-                // Pulse the motors for a short duration in the correct direction
-                pulse_forward(-power, PULSE_TIME);
-            }
-            else if(orientation == PLUS)
-            {
-                // Pulse the motors for a short duration in the correct direction
-            pulse_forward(power, PULSE_TIME);
-            }
-            Sleep(RCS_WAIT_TIME_IN_SEC);
-            
-            pose = RCS.RequestPosition();
-        }
-    }   
-}
-
-/* 
- * Use RCS to move to the desired heading
- */
-void check_heading(float heading)
-{
-    //You will need to fill out this one yourself and take into account
-    //checking for proper RCS data and the edge conditions
-    //(when you want the robot to go to 0 degrees or close to 0 degrees)
-
-    /*
-        SUGGESTED ALGORITHM:
-        1. Check the current orientation of the QR code and the desired orientation of the QR code
-        2. Check if the robot is within the desired threshold for the heading based on the orientation
-        3. Pulse in the correct direction based on the orientation
-    */
-}
+DigitalEncoder right_encoder(FEHIO::Pin8);
 
 void ERCMain()
 {
-    int touch_x,touch_y;
-    float A_x, A_y, B_x, B_y, C_x, C_y, D_x, D_y;
-    float A_heading, B_heading, C_heading, D_heading;
-    int B_C_counts, C_D_counts, turn_90_counts;
+    // Declare variables.
+    // For touchscreen functionality.
+    int touch_x, touch_y;
+    // Loop n through points to record necessary positions.
+    int n;
+    char points[4] = {'A', 'B', 'C', 'D'};
 
+    // Disable RCS position rate limiting to allow for more
+    // frequent position updates (testing only, won't work during competition)
+    RCS.DisableRateLimit();
+
+    // Call this function to initialize the RCS to a course.
+    // For Exploration 3, please use the key provided below.
+    //     This matches the AruCo code that is provided for this exploration.
+    // If your team wishes to use RCS's positioning system going forward,
+    //     please use the 8 digit code on your team's page on the store website.
     RCS.InitializeTouchMenu("Z1TESTING");
 
-    LCD.WriteLine("RCS & Data Logging Test");
-    LCD.WriteLine("Press Screen To Start");
-    while(!LCD.Touch(&touch_x,&touch_y));
-    while(LCD.Touch(&touch_x,&touch_y));
+    // Open SD file for writing
+    FEHFile *fptr = SD.FOpen("test.txt", "w");
 
-    // COMPLETE CODE HERE TO READ SD CARD FOR LOGGED X AND Y DATA POINTS
-    A_x = 23.23f;  A_y = 42.44f;
-    B_x = 22.83f;  B_y = 54.75f;
-    C_x = 10.77f;  C_y = 56.56f;
-    D_x = 11.45f;  D_y = 44.00f;
+    // Wait for touchscreen to be pressed and released
+    LCD.WriteLine("Press Screen to Start");
+    while (!LCD.Touch(&touch_x, &touch_y));
+    while (LCD.Touch(&touch_x, &touch_y));
 
-    // WRITE CODE HERE TO SET THE HEADING DEGREES AND COUNTS VALUES
-    A_heading = 90;
-    B_heading = 180;
-    C_heading = 270;
-    D_heading = 0;
+    // Clear screen
+    LCD.Clear();
 
-    B_C_counts = COUNTS_PER_INCH*10;
-    C_D_counts = COUNTS_PER_INCH*10;
+    // Step through each path point (A,B,C,D) to record position and heading
+    for (n = 0; n <= 3; n++)
+    {
+        LCD.Clear();
+        LCD.WriteRC("Touch to set point ", 0, 0);
+        LCD.WriteRC(points[n], 0, 20);
 
-    turn_90_counts = 90*COUNTS_PER_DEGREE;
+        RCSPose *pose;
 
-    // A --> B
-    check_y(B_y, PLUS);
-    check_heading(B_heading);
+        // Loop until touchscreen is pressed, continuously requesting 
+        // RCS position data and writing it to the LCD screen
+        while (!LCD.Touch(&touch_x, &touch_y))
+        {
+            // Request position data from RCS
+            pose = RCS.RequestPosition();
 
-    // B --> C
-    move_forward(POWER, B_C_counts);
-    check_x(C_x, MINUS);
-    turn_counterclockwise(POWER, turn_90_counts);
-    check_heading(C_heading);
+            // Clear previous position data from LCD
+            LCD.SetFontColor(BLACK);
+            LCD.FillRectangle(130, 20, 100, 60);
 
-    // C --> D
-    move_forward(POWER, C_D_counts);
-    check_y(D_y, MINUS);
-    turn_counterclockwise(POWER, turn_90_counts);
-    check_heading(D_heading);
+            LCD.SetFontColor(WHITE);
+            LCD.WriteRC("X Position:", 2, 0);
+            LCD.WriteRC("Y Position:", 3, 0);
+            LCD.WriteRC("Heading:", 4, 0);
+
+            // Write the RCS data to the LCD screen
+            LCD.WriteRC(pose->x, 2, 12);
+            LCD.WriteRC(pose->y, 3, 12);
+            LCD.WriteRC(pose->heading, 4, 12);
+        }
+
+        // Print RCS data for this path point to file
+        SD.FPrintf(fptr, "%f %f\n", pose->x, pose->y);
+
+        // Wait for touchscreen to be released
+        while (!LCD.Touch(&touch_x, &touch_y));
+    }
+
+    LCD.Clear();
+    LCD.WriteLine("Drive to B!");
+    while (!LCD.Touch(&touch_x, &touch_y));
+    while (LCD.Touch(&touch_x, &touch_y));
+    while( RCS.RequestPosition()->y < 55){
+        // Drive forward until Y position is at least 55
+        rightMotor.SetPercent(30);
+        leftMotor.SetPercent(30);
+        Sleep(0.3);
+    }
+    rightMotor.Stop();
+    leftMotor.Stop();
+
+    left_encoder.ResetCounts();
+    right_encoder.ResetCounts();
+    while( (left_encoder.Counts()+right_encoder.Counts())/2 < (75*2.48) ){
+        // Drive forward until encoders reach 1000 counts
+        rightMotor.SetPercent(30);
+        leftMotor.SetPercent(-30);
+        Sleep(0.3);
+    }
+    while( RCS.RequestPosition()->x > 12 ){
+        // Drive forward until X position is at least 10
+        rightMotor.SetPercent(30);
+        leftMotor.SetPercent(30);
+        Sleep(0.3);
+    }
+    rightMotor.Stop();
+    leftMotor.Stop();
+
+    
+    left_encoder.ResetCounts();
+    right_encoder.ResetCounts();
+    while( (left_encoder.Counts()+right_encoder.Counts())/2 < (75*2.48) ){
+        // Drive forward until encoders reach 1000 counts
+        rightMotor.SetPercent(30);
+        leftMotor.SetPercent(-30);
+    }
+    while( RCS.RequestPosition()->y > 45 ){
+        // Drive forward until Y position is at least 55
+        rightMotor.SetPercent(30);
+        leftMotor.SetPercent(30);
+        Sleep(0.3);
+    }
+    rightMotor.Stop();
+    leftMotor.Stop();
+
+    
 }
