@@ -65,7 +65,7 @@ void moveBackward(float distanceInches, int powerPercent = 40)
     int distanceCounts = (distanceInches * 318)/7.85; // Convert inches to encoder counts
     rightMotor.SetPercent(direction * powerPercent);
     leftMotor.SetPercent(-1* direction * powerPercent);
-    while(((left_encoder.Counts() + right_encoder.Counts()) / 2. < distanceCounts) && light_sensor.Value() > 1.2);
+    while(((left_encoder.Counts() + right_encoder.Counts()) / 2. < distanceCounts));
  
     leftMotor.Stop();
     rightMotor.Stop();
@@ -248,10 +248,10 @@ void followLineBack(int drivePercent)
     
 
 
-    const int backwardLeft = -drivePercent;   // left motor spins negative to drive forward
-    const int backwardRight = drivePercent;   // right motor spins positive to drive forward
-    const int slowLeft = -slowPercent;
-    const int slowRight = slowPercent;
+    const int frontLeft = drivePercent;   // left motor spins negative to drive forward
+    const int frontRight = -drivePercent;   // right motor spins positive to drive forward
+    const int slowLeft = slowPercent;
+    const int slowRight = -slowPercent;
 
     auto inRange = [](float value, float min, float max)
     {
@@ -281,18 +281,18 @@ void followLineBack(int drivePercent)
 
         else if(leftOnWhite)
         {
-            leftMotor.SetPercent(backwardLeft);
-            rightMotor.SetPercent(backwardRight);
+            leftMotor.SetPercent(frontLeft);
+            rightMotor.SetPercent(frontRight);
         }
         else if(leftOnGray)
         {
-            leftMotor.SetPercent(backwardLeft);
+            leftMotor.SetPercent(frontLeft);
             rightMotor.SetPercent(slowRight);
         }
         else if (leftOnBlack)
         {
             leftMotor.SetPercent(slowLeft);
-            rightMotor.SetPercent(backwardRight);
+            rightMotor.SetPercent(frontRight);
         }
     }
 
@@ -342,28 +342,39 @@ void ERCMain()
 {
 
     waitForStartLight(); //checks if cds cell (red filter) detects red light
-    moveForward(3, -50); // clicks button
-    Sleep(250);
+    rightMotor.SetPercent(30);
+    leftMotor.SetPercent(-30);
+    Sleep(750);
+    rightMotor.Stop();
+    leftMotor.Stop();
     
 
     moveForward(2.5); // back up from button
-    turnRight45(20); // turn towards center of ramp
-    moveForward(1); //move towarde center of ramp
-    turnRight45(20); //align with ramp
-    moveForward(4); // go toward ramp
-    turnLeft(50, 20); // align with ramp
-    moveForward(35.5, 50); // move up ramp until intersection line
+    Sleep(100);
+    turnRight45(20);
+    Sleep(100);
+    moveForward(1);
+    Sleep(100);
+    turnRight45(20);
+    Sleep(100);
+    moveForward(5);
+    Sleep(100);
+    turnLeft(55, 20);
+    Sleep(100);
+    moveForward(29.5, 50);
+    Sleep(100);
 
-    turnRight90(20); // turn towards humidifier
+    turnRight(90, 20);
+    Sleep(100);
+    moveBackward(18, 30);
 
-    Sleep(1000);
-    moveBackward(2); //go toward humidifier
-    moveBackward(13); //go toward humidifier, checks if cds cell light is on
-    Sleep(1000);
-    checkLight(); //if light is on, clicks correct button
-    moveForward(20); // move back down toward ramp
-    turnLeft90(20); // turn towards ramp
-    moveBackward(36, 50); //move back down ramp
+    moveForward(18,30);
+    Sleep(100);
+    turnLeft(90, 20);
+    
+
+
+
 
     
 }
