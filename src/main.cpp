@@ -19,6 +19,8 @@ AnalogInputPin leftOpto(FEHIO::Pin14);
 AnalogInputPin middleOpto(FEHIO::Pin13);
 AnalogInputPin rightOpto(FEHIO::Pin12);
 
+FEHServo servo(FEHServo::Servo0);
+
 boolean isRed = false;
 boolean isBlue = false;
 
