@@ -361,14 +361,14 @@ void ERCMain()
     Sleep(100);
     turnLeft(55, 20);
     Sleep(100);
-    moveForward(29.5, 50);
+    moveForward(29.9, 50);
     Sleep(100);
 
     turnRight(90, 20);
     Sleep(100);
-    moveBackward(18, 30);
-
-    moveForward(18,30);
+    moveBackward(18, 50);
+    Sleep(500);
+    moveForward(18,50);
     Sleep(100);
     turnLeft(90, 20);
     
