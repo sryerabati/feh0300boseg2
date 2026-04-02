@@ -343,7 +343,33 @@ void checkLight(){
 void ERCMain()
 {
 
+    TestGUI();
+    /** 
+    servo.TouchCalibrate();
+    waitForTouchStart("Press to 0");
+    LCD.Clear();
+    servo.SetDegree(0);
+    waitForTouchStart("Press to 45");
+    LCD.Clear();
+    servo.SetDegree(45);
+    waitForTouchStart("Press to 90");
+    LCD.Clear();
+    servo.SetDegree(90);
+    waitForTouchStart("Press to 180");
+    LCD.Clear();
+    servo.SetDegree(180);
+    waitForTouchStart("Press to 225");
+    LCD.Clear();
+    servo.SetDegree(225);
+    */
+    
+
+
+    
+    /**
     waitForStartLight(); //checks if cds cell (red filter) detects red light
+    
+    
     rightMotor.SetPercent(30);
     leftMotor.SetPercent(-30);
     Sleep(750);
@@ -351,28 +377,54 @@ void ERCMain()
     leftMotor.Stop();
     
 
-    moveForward(2.5); // back up from button
-    Sleep(100);
-    turnRight45(20);
-    Sleep(100);
-    moveForward(1);
-    Sleep(100);
-    turnRight45(20);
-    Sleep(100);
-    moveForward(5);
-    Sleep(100);
-    turnLeft(55, 20);
-    Sleep(100);
-    moveForward(29.9, 50);
+    moveForward(18);
     Sleep(100);
 
-    turnRight(90, 20);
+    turnLeft(50, 40);
+    moveForward(7.5);
+    
     Sleep(100);
-    moveBackward(18, 50);
-    Sleep(500);
-    moveForward(18,50);
+
+    moveBackward(7.5);
+    turnRight(50, 40);
+
     Sleep(100);
-    turnLeft(90, 20);
+
+    moveBackward(10);
+    turnRight90(40);
+    Sleep(100);
+
+    moveForward(9);
+    turnLeft(50, 40);
+    Sleep(100);
+
+    moveForward(28);
+    Sleep(100);
+    turnRight90(40);
+    Sleep(100);
+
+    moveBackward(10);
+    Sleep(100);
+    turnLeft90(40);
+    Sleep(100);
+    
+    moveForward(11);
+    Sleep(100);
+    turnRight(85, 40);
+    Sleep(100);
+
+    moveForward(7); //change back to 5
+    Sleep(100);
+    turnLeft90(40);
+    Sleep(100);
+
+    moveBackward(11);
+    Sleep(100);
+    turnLeft(50, 40);
+    Sleep(100);
+
+    moveForward(12);
+     */
     
 
 
