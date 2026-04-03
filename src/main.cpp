@@ -24,6 +24,29 @@ FEHServo servo(FEHServo::Servo0);
 boolean isRed = false;
 boolean isBlue = false;
 
+int liftUp = 112;
+int liftStop = 82;
+int liftDown = 52;
+
+int timeLift = 2515; // milliseconds, for top to bottom/or bottomtotop
+float heightBottom = 3.0; //inches
+float heightTop = 9.5; //inches
+float distanceToLift = heightTop - heightBottom; //inches
+
+void moveLiftDown(int distance = distanceToLift){
+    servo.SetDegree(liftDown);
+    Sleep(timeLift * (distance/distanceToLift));
+    servo.SetDegree(liftStop);  
+
+}
+
+
+void moveLiftUp(int distance = distanceToLift){
+    servo.SetDegree(liftUp);
+    Sleep(timeLift * (distance/distanceToLift));
+    servo.SetDegree(liftStop);
+}
+
 void waitForTouchStart(String message)
 {
     int x;
@@ -343,30 +366,6 @@ void checkLight(){
 void ERCMain()
 {
 
-    TestGUI();
-    /** 
-    servo.TouchCalibrate();
-    waitForTouchStart("Press to 0");
-    LCD.Clear();
-    servo.SetDegree(0);
-    waitForTouchStart("Press to 45");
-    LCD.Clear();
-    servo.SetDegree(45);
-    waitForTouchStart("Press to 90");
-    LCD.Clear();
-    servo.SetDegree(90);
-    waitForTouchStart("Press to 180");
-    LCD.Clear();
-    servo.SetDegree(180);
-    waitForTouchStart("Press to 225");
-    LCD.Clear();
-    servo.SetDegree(225);
-    */
-    
-
-
-    
-    /**
     waitForStartLight(); //checks if cds cell (red filter) detects red light
     
     
@@ -382,6 +381,10 @@ void ERCMain()
 
     turnLeft(50, 40);
     moveForward(7.5);
+
+    moveLiftDown();
+    moveLiftUp(6);
+
     
     Sleep(100);
 
@@ -424,7 +427,7 @@ void ERCMain()
     Sleep(100);
 
     moveForward(12);
-     */
+
     
 
 
