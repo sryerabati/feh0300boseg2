@@ -28,23 +28,35 @@ int liftUp = 112;
 int liftStop = 82;
 int liftDown = 52;
 
-int timeLift = 2515; // milliseconds, for top to bottom/or bottomtotop
+float timeLift = 2530; // milliseconds, for top to bottom/or bottomtotop
 float heightBottom = 3.0; //inches
 float heightTop = 9.5; //inches
 float distanceToLift = heightTop - heightBottom; //inches
 
-void moveLiftDown(int distance = distanceToLift){
-    servo.SetDegree(liftDown);
-    Sleep(timeLift * (distance/distanceToLift));
-    servo.SetDegree(liftStop);  
+void moveLiftDown(float distance) {
+    
+   
+        servo.SetDegree(liftDown);
+        Sleep((int)(timeLift * (distance/distanceToLift)));
+        servo.SetDegree(liftStop);  
+    
+    
+    
 
 }
 
 
-void moveLiftUp(int distance = distanceToLift){
+void moveLiftUp(float distance = distanceToLift){
+    if (distance == distanceToLift ) {
+        servo.SetDegree(liftUp);
+        Sleep((int)(timeLift * (distance/distanceToLift)));
+        servo.SetDegree(liftStop);  
+    }
+    else{
     servo.SetDegree(liftUp);
-    Sleep(timeLift * (distance/distanceToLift));
-    servo.SetDegree(liftStop);
+    Sleep((int)(timeLift * ((distance-3.0f)/distanceToLift)));
+    servo.SetDegree(liftStop);  
+    }
 }
 
 void waitForTouchStart(String message)
@@ -380,28 +392,30 @@ void ERCMain()
     Sleep(100);
 
     turnLeft(50, 40);
-    moveForward(7.5);
+    moveForward(5.5);
 
-    moveLiftDown();
-    moveLiftUp(6);
-
-    
+    moveLiftDown(distanceToLift);
+    Sleep(300);
+    moveLiftUp(4.7);
+    moveForward(3);
+    moveLiftUp(9);
+    moveBackward(4);
     Sleep(100);
 
-    moveBackward(7.5);
+    moveBackward(6.5);
     turnRight(50, 40);
 
     Sleep(100);
 
-    moveBackward(10);
+    moveBackward(12);
     turnRight90(40);
     Sleep(100);
 
-    moveForward(9);
+    moveForward(4); //changed to 7 from 9 
     turnLeft(50, 40);
     Sleep(100);
 
-    moveForward(28);
+    moveForward(32, 60);
     Sleep(100);
     turnRight90(40);
     Sleep(100);
@@ -412,11 +426,13 @@ void ERCMain()
     Sleep(100);
     
     moveForward(11);
+    
     Sleep(100);
     turnRight(85, 40);
     Sleep(100);
 
     moveForward(7); //change back to 5
+    moveLiftDown(1);
     Sleep(100);
     turnLeft90(40);
     Sleep(100);
@@ -426,7 +442,12 @@ void ERCMain()
     turnLeft(50, 40);
     Sleep(100);
 
-    moveForward(12);
+    moveForward(22);
+    moveLiftDown(distanceToLift);
+    moveBackward(5);
+    moveForward(5);
+    moveLiftUp(distanceToLift);
+    Sleep(100);
 
     
 
