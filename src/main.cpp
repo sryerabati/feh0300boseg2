@@ -378,76 +378,7 @@ void checkLight(){
 void ERCMain()
 {
 
-    waitForStartLight(); //checks if cds cell (red filter) detects red light
-    
-    
-    rightMotor.SetPercent(30);
-    leftMotor.SetPercent(-30);
-    Sleep(750);
-    rightMotor.Stop();
-    leftMotor.Stop();
-    
-
-    moveForward(18);
-    Sleep(100);
-
-    turnLeft(50, 40);
-    moveForward(5.5);
-
-    moveLiftDown(distanceToLift);
-    Sleep(300);
-    moveLiftUp(4.7);
-    moveForward(3);
-    moveLiftUp(9);
-    moveBackward(4);
-    Sleep(100);
-
-    moveBackward(6.5);
-    turnRight(50, 40);
-
-    Sleep(100);
-
-    moveBackward(12);
-    turnRight90(40);
-    Sleep(100);
-
-    moveForward(4); //changed to 7 from 9 
-    turnLeft(50, 40);
-    Sleep(100);
-
-    moveForward(32, 60);
-    Sleep(100);
-    turnRight90(40);
-    Sleep(100);
-
-    moveBackward(10);
-    Sleep(100);
-    turnLeft90(40);
-    Sleep(100);
-    
-    moveForward(11);
-    
-    Sleep(100);
-    turnRight(85, 40);
-    Sleep(100);
-
-    moveForward(7); //change back to 5
-    moveLiftDown(1);
-    Sleep(100);
-    turnLeft90(40);
-    Sleep(100);
-
-    moveBackward(11);
-    Sleep(100);
-    turnLeft(50, 40);
-    Sleep(100);
-
-    moveForward(22);
-    moveLiftDown(distanceToLift);
-    moveBackward(5);
-    moveForward(5);
-    moveLiftUp(distanceToLift);
-    Sleep(100);
+    TestGUI();
 
     
 
