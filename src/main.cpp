@@ -20,6 +20,7 @@ AnalogInputPin middleOpto(FEHIO::Pin13);
 AnalogInputPin rightOpto(FEHIO::Pin12);
 
 FEHServo servo(FEHServo::Servo0);
+FEHServo composterServo(FEHServo::Servo1);
 
 boolean isRed = false;
 boolean isBlue = false;
@@ -94,7 +95,7 @@ void waitForStartLight()
 }
 
 void moveBackward(float distanceInches, int powerPercent = 40)
-{
+{   
     int direction = 1;
     right_encoder.ResetCounts();
     left_encoder.ResetCounts();
@@ -102,8 +103,18 @@ void moveBackward(float distanceInches, int powerPercent = 40)
     int distanceCounts = (distanceInches * 318)/7.85; // Convert inches to encoder counts
     rightMotor.SetPercent(direction * powerPercent);
     leftMotor.SetPercent(-1* direction * powerPercent);
-    while(((left_encoder.Counts() + right_encoder.Counts()) / 2. < distanceCounts));
- 
+    const unsigned long timeoutMs = 10000;
+    const unsigned long startMs = millis();
+
+    while(((left_encoder.Counts() + right_encoder.Counts()) / 2. < distanceCounts))
+    {
+        if(millis() - startMs > timeoutMs)
+        {
+            break;
+        }
+        Sleep(10);
+    }
+    
     leftMotor.Stop();
     rightMotor.Stop();
 
@@ -198,6 +209,7 @@ void turnLeft45(int percent)
     leftMotor.Stop();
 
 }
+
 
 
 
@@ -375,10 +387,55 @@ void checkLight(){
    }
 }
 
+void turnComposterForward()
+{
+    composterServo.SetDegree(126);
+    Sleep(1500);
+    composterServo.SetDegree(88);
+}
+
+void turnComposterBackward()
+{
+    composterServo.SetDegree(50);
+    Sleep(1500);
+    composterServo.SetDegree(88);
+}
+
 void ERCMain()
 {
+    RCS.InitializeTouchMenu("0300G2YKL");
+    waitForStartLight();
+    leftMotor.SetPercent(-30);
+    rightMotor.SetPercent(30);
+    Sleep(750);
+    leftMotor.Stop();
+    rightMotor.Stop();
+    moveForward(3);
+    turnRight(50, 40);
+    moveBackward(5);
+    turnRight(85, 40);
+    moveBackward(7.5);
+    turnComposterForward();
+    Sleep(1500);
+    turnComposterBackward();
+    moveForward(13);
 
-    TestGUI();
+
+
+    /** 
+    
+    
+    moveBackward(3);
+    turnComposterForward();
+    Sleep(5000);
+    turnComposterBackward();
+    moveBackward(8); //sldfjlkdfsj
+    turnLeft(50, 40); 
+    moveBackward(3);
+    turnRight(50,40);
+    moveBackward(3);
+    moveForward(1);
+    */
 
     
 
