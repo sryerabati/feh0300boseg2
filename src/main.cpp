@@ -1,6 +1,7 @@
 #include <FEH.h>
 #include <Arduino.h>
 #include <FEHUtility.h>
+#include <math.h>
 
 
 // Declare things like Motors, Servos, etc. here
@@ -239,6 +240,7 @@ void turnRight45(int percent)
     leftMotor.Stop();
 
 }
+
 void turnRight(int angle, int percent = 40)
 {
     //Reset encoder counts
@@ -288,6 +290,313 @@ void turnLeft(int angle, int percent = 40)
     rightMotor.Stop();
     leftMotor.Stop();
 
+}
+
+float signedHeadingError(float targetHeading, float currentHeading)
+{
+    float error = targetHeading - currentHeading;
+
+    while(error > 180.0f)
+    {
+        error -= 360.0f;
+    }
+
+    while(error < -180.0f)
+    {
+        error += 360.0f;
+    }
+
+    return error;
+}
+
+float headingTowardCoordinate(float dx, float dy)
+{
+    float heading = degrees(atan2(dx, dy));
+
+    if(heading < 0.0f)
+    {
+        heading += 360.0f;
+    }
+
+    return heading;
+}
+
+bool getRCSPose(RCSPose &pose)
+{
+    RCSPose *latestPose = RCS.RequestPosition(true);
+    if(latestPose == nullptr)
+    {
+        return false;
+    }
+
+    pose = *latestPose;
+    return pose.x >= 0.0f && pose.y >= 0.0f && pose.heading >= 0.0f;
+}
+
+void stopDriveMotors()
+{
+    leftMotor.Stop();
+    rightMotor.Stop();
+}
+
+void pulseForwardForRCS(int powerPercent, int pulseMs)
+{
+    leftMotor.SetPercent(powerPercent);
+    rightMotor.SetPercent(-powerPercent);
+    Sleep(pulseMs);
+    stopDriveMotors();
+}
+
+void pulseTurnForRCS(float headingError, int powerPercent, int pulseMs)
+{
+    if(headingError > 0)
+    {
+        rightMotor.SetPercent(-powerPercent);
+        leftMotor.SetPercent(-powerPercent);
+    }
+    else
+    {
+        rightMotor.SetPercent(powerPercent);
+        leftMotor.SetPercent(powerPercent);
+    }
+
+    Sleep(pulseMs);
+    stopDriveMotors();
+}
+
+bool pulseToRCSCoordinate(
+    float targetX,
+    float targetY,
+    int maxRCSRequests = 3,
+    float toleranceInches = 0.5f,
+    int drivePowerPercent = 18,
+    int turnPowerPercent = 16)
+{
+    const float headingToleranceDegrees = 6.0f;
+    const int minPulseMs = 70;
+    const int maxDrivePulseMs = 220;
+    const int maxTurnPulseMs = 180;
+    const int settleMs = 150;
+
+    for(int request = 0; request < maxRCSRequests; request++)
+    {
+        RCSPose pose;
+        if(!getRCSPose(pose))
+        {
+            stopDriveMotors();
+            return false;
+        }
+
+        const float dx = targetX - pose.x;
+        const float dy = targetY - pose.y;
+        const float distance = sqrt((dx * dx) + (dy * dy));
+
+        if(distance <= toleranceInches)
+        {
+            stopDriveMotors();
+            return true;
+        }
+
+        const float targetHeading = headingTowardCoordinate(dx, dy);
+        const float headingError = signedHeadingError(targetHeading, pose.heading);
+
+        if(fabs(headingError) > headingToleranceDegrees)
+        {
+            int turnPulseMs = (int)(fabs(headingError) * 3.0f);
+            if(turnPulseMs < minPulseMs)
+            {
+                turnPulseMs = minPulseMs;
+            }
+            if(turnPulseMs > maxTurnPulseMs)
+            {
+                turnPulseMs = maxTurnPulseMs;
+            }
+
+            pulseTurnForRCS(headingError, turnPowerPercent, turnPulseMs);
+        }
+        else
+        {
+            int drivePulseMs = (int)(distance * 80.0f);
+            if(drivePulseMs < minPulseMs)
+            {
+                drivePulseMs = minPulseMs;
+            }
+            if(drivePulseMs > maxDrivePulseMs)
+            {
+                drivePulseMs = maxDrivePulseMs;
+            }
+
+            pulseForwardForRCS(drivePowerPercent, drivePulseMs);
+        }
+
+        Sleep(settleMs);
+    }
+
+    stopDriveMotors();
+    return false;
+}
+
+bool pulseToRCSHeading(
+    float targetHeading,
+    int maxRCSRequests = 3,
+    float headingToleranceDegrees = 4.0f,
+    float maxDriftInches = 1.0f,
+    int turnPowerPercent = 16)
+{
+    const int minPulseMs = 70;
+    const int maxTurnPulseMs = 180;
+    const int settleMs = 150;
+
+    if(maxRCSRequests <= 0)
+    {
+        stopDriveMotors();
+        return false;
+    }
+
+    RCSPose originPose;
+    if(!getRCSPose(originPose))
+    {
+        stopDriveMotors();
+        return false;
+    }
+
+    RCSPose currentPose = originPose;
+
+    for(int request = 1; request < maxRCSRequests; request++)
+    {
+        const float headingError = signedHeadingError(targetHeading, currentPose.heading);
+        if(fabs(headingError) <= headingToleranceDegrees)
+        {
+            stopDriveMotors();
+            return true;
+        }
+
+        int turnPulseMs = (int)(fabs(headingError) * 3.0f);
+        if(turnPulseMs < minPulseMs)
+        {
+            turnPulseMs = minPulseMs;
+        }
+        if(turnPulseMs > maxTurnPulseMs)
+        {
+            turnPulseMs = maxTurnPulseMs;
+        }
+
+        pulseTurnForRCS(headingError, turnPowerPercent, turnPulseMs);
+        Sleep(settleMs);
+
+        RCSPose pose;
+        if(!getRCSPose(pose))
+        {
+            stopDriveMotors();
+            return false;
+        }
+
+        const float driftX = pose.x - originPose.x;
+        const float driftY = pose.y - originPose.y;
+        const float drift = sqrt((driftX * driftX) + (driftY * driftY));
+        if(drift > maxDriftInches)
+        {
+            stopDriveMotors();
+            return false;
+        }
+
+        currentPose = pose;
+    }
+
+    const float finalHeadingError = signedHeadingError(targetHeading, currentPose.heading);
+    stopDriveMotors();
+    return fabs(finalHeadingError) <= headingToleranceDegrees;
+}
+
+bool pulseToRCSPose(
+    float targetX,
+    float targetY,
+    float targetHeading,
+    int maxRCSRequests = 3,
+    float toleranceInches = 0.5f,
+    float headingToleranceDegrees = 4.0f,
+    int drivePowerPercent = 18,
+    int turnPowerPercent = 16)
+{
+    const int minPulseMs = 70;
+    const int maxDrivePulseMs = 220;
+    const int maxTurnPulseMs = 180;
+    const int settleMs = 150;
+
+    for(int request = 0; request < maxRCSRequests; request++)
+    {
+        RCSPose pose;
+        if(!getRCSPose(pose))
+        {
+            stopDriveMotors();
+            return false;
+        }
+
+        const float dx = targetX - pose.x;
+        const float dy = targetY - pose.y;
+        const float distance = sqrt((dx * dx) + (dy * dy));
+
+        if(distance > toleranceInches)
+        {
+            const float targetDriveHeading = headingTowardCoordinate(dx, dy);
+            const float driveHeadingError = signedHeadingError(targetDriveHeading, pose.heading);
+
+            if(fabs(driveHeadingError) > headingToleranceDegrees)
+            {
+                int turnPulseMs = (int)(fabs(driveHeadingError) * 3.0f);
+                if(turnPulseMs < minPulseMs)
+                {
+                    turnPulseMs = minPulseMs;
+                }
+                if(turnPulseMs > maxTurnPulseMs)
+                {
+                    turnPulseMs = maxTurnPulseMs;
+                }
+
+                pulseTurnForRCS(driveHeadingError, turnPowerPercent, turnPulseMs);
+            }
+            else
+            {
+                int drivePulseMs = (int)(distance * 80.0f);
+                if(drivePulseMs < minPulseMs)
+                {
+                    drivePulseMs = minPulseMs;
+                }
+                if(drivePulseMs > maxDrivePulseMs)
+                {
+                    drivePulseMs = maxDrivePulseMs;
+                }
+
+                pulseForwardForRCS(drivePowerPercent, drivePulseMs);
+            }
+        }
+        else
+        {
+            const float finalHeadingError = signedHeadingError(targetHeading, pose.heading);
+            if(fabs(finalHeadingError) <= headingToleranceDegrees)
+            {
+                stopDriveMotors();
+                return true;
+            }
+
+            int turnPulseMs = (int)(fabs(finalHeadingError) * 3.0f);
+            if(turnPulseMs < minPulseMs)
+            {
+                turnPulseMs = minPulseMs;
+            }
+            if(turnPulseMs > maxTurnPulseMs)
+            {
+                turnPulseMs = maxTurnPulseMs;
+            }
+
+            pulseTurnForRCS(finalHeadingError, turnPowerPercent, turnPulseMs);
+        }
+
+        Sleep(settleMs);
+    }
+
+    stopDriveMotors();
+    return false;
 }
 
 void followLineBack(int drivePercent)
@@ -404,6 +713,9 @@ void turnComposterBackward()
 void ERCMain()
 {
     RCS.InitializeTouchMenu("0300G2YKL");
+    waitForTouchStart("Click the screen when you're ready for your OFFICIAL run.!");
+
+
     waitForStartLight();
     leftMotor.SetPercent(-30);
     rightMotor.SetPercent(30);
