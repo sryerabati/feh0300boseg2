@@ -16,15 +16,13 @@ DigitalEncoder left_encoder(FEHIO::Pin10);
 DigitalEncoder right_encoder(FEHIO::Pin8);
 AnalogInputPin light_sensor(FEHIO::Pin1);
 
-AnalogInputPin leftOpto(FEHIO::Pin14);
-AnalogInputPin middleOpto(FEHIO::Pin13);
-AnalogInputPin rightOpto(FEHIO::Pin12);
-
 FEHServo servo(FEHServo::Servo0);
 FEHServo composterServo(FEHServo::Servo1);
 
 boolean isRed = false;
 boolean isBlue = false;
+
+const int maxRCSRequestsPerCheck = 6; // 6 checks * 6 requests = 36 max RCS calls, leaving 14 calls of buffer.
 
 int liftUp = 112;
 int liftStop = 82;
@@ -135,110 +133,14 @@ void moveForward(float distanceInches, int powerPercent = 40)
     rightMotor.Stop();
 
 }
-void turnRight90(int percent)
+
+void backUpToHitButton(int powerPercent = 30, int durationMs = 750)
 {
-    //Reset encoder counts
-
-    right_encoder.ResetCounts();
-
-    left_encoder.ResetCounts();
-
-    int counts = (6.55*318)/7.85;
-
-
-    //Set both motors to desired percent
-
-    //hint: set right motor backwards, left motor forwards
-    rightMotor.SetPercent(percent);
-    leftMotor.SetPercent(percent);
-    //While the average of the left and right encoder is less than counts,
-    //keep running motors
-    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);  
-
-    //Turn off motors
-    rightMotor.Stop();
+    leftMotor.SetPercent(-powerPercent);
+    rightMotor.SetPercent(powerPercent);
+    Sleep(durationMs);
     leftMotor.Stop();
-
-}
-void turnLeft90(int percent)
-{
-    //Reset encoder counts
-
-    right_encoder.ResetCounts();
-
-    left_encoder.ResetCounts();
-
-    int counts = (6.55*318)/7.85;
-
-
-    //Set both motors to desired percent
-
-    //hint: set right motor backwards, left motor forwards
-    rightMotor.SetPercent(-1 * percent);
-    leftMotor.SetPercent(-1 * percent);
-    //While the average of the left and right encoder is less than counts,
-    //keep running motors
-    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);  
-
-    //Turn off motors
     rightMotor.Stop();
-    leftMotor.Stop();
-
-}
-void turnLeft45(int percent)
-{
-    //Reset encoder counts
-
-    right_encoder.ResetCounts();
-
-    left_encoder.ResetCounts();
-
-    int counts = (0.5)*(6.55*318)/7.85;
-
-
-    //Set both motors to desired percent
-
-    //hint: set right motor backwards, left motor forwards
-    rightMotor.SetPercent(-1 * percent);
-    leftMotor.SetPercent(-1 * percent);
-    //While the average of the left and right encoder is less than counts,
-    //keep running motors
-    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);  
-
-    //Turn off motors
-    rightMotor.Stop();
-    leftMotor.Stop();
-
-}
-
-
-
-
-
-void turnRight45(int percent)
-{
-    //Reset encoder counts
-
-    right_encoder.ResetCounts();
-
-    left_encoder.ResetCounts();
-
-    int counts = (0.5)*(6.55*318)/7.85;
-
-
-    //Set both motors to desired percent
-
-    //hint: set right motor backwards, left motor forwards
-    rightMotor.SetPercent(percent);
-    leftMotor.SetPercent(percent);
-    //While the average of the left and right encoder is less than counts,
-    //keep running motors
-    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);  
-
-    //Turn off motors
-    rightMotor.Stop();
-    leftMotor.Stop();
-
 }
 
 void turnRight(int angle, int percent = 40)
@@ -364,150 +266,6 @@ void pulseTurnForRCS(float headingError, int powerPercent, int pulseMs)
     stopDriveMotors();
 }
 
-bool pulseToRCSCoordinate(
-    float targetX,
-    float targetY,
-    int maxRCSRequests = 3,
-    float toleranceInches = 0.5f,
-    int drivePowerPercent = 18,
-    int turnPowerPercent = 16)
-{
-    const float headingToleranceDegrees = 6.0f;
-    const int minPulseMs = 70;
-    const int maxDrivePulseMs = 220;
-    const int maxTurnPulseMs = 180;
-    const int settleMs = 150;
-
-    for(int request = 0; request < maxRCSRequests; request++)
-    {
-        RCSPose pose;
-        if(!getRCSPose(pose))
-        {
-            stopDriveMotors();
-            return false;
-        }
-
-        const float dx = targetX - pose.x;
-        const float dy = targetY - pose.y;
-        const float distance = sqrt((dx * dx) + (dy * dy));
-
-        if(distance <= toleranceInches)
-        {
-            stopDriveMotors();
-            return true;
-        }
-
-        const float targetHeading = headingTowardCoordinate(dx, dy);
-        const float headingError = signedHeadingError(targetHeading, pose.heading);
-
-        if(fabs(headingError) > headingToleranceDegrees)
-        {
-            int turnPulseMs = (int)(fabs(headingError) * 3.0f);
-            if(turnPulseMs < minPulseMs)
-            {
-                turnPulseMs = minPulseMs;
-            }
-            if(turnPulseMs > maxTurnPulseMs)
-            {
-                turnPulseMs = maxTurnPulseMs;
-            }
-
-            pulseTurnForRCS(headingError, turnPowerPercent, turnPulseMs);
-        }
-        else
-        {
-            int drivePulseMs = (int)(distance * 80.0f);
-            if(drivePulseMs < minPulseMs)
-            {
-                drivePulseMs = minPulseMs;
-            }
-            if(drivePulseMs > maxDrivePulseMs)
-            {
-                drivePulseMs = maxDrivePulseMs;
-            }
-
-            pulseForwardForRCS(drivePowerPercent, drivePulseMs);
-        }
-
-        Sleep(settleMs);
-    }
-
-    stopDriveMotors();
-    return false;
-}
-
-bool pulseToRCSHeading(
-    float targetHeading,
-    int maxRCSRequests = 3,
-    float headingToleranceDegrees = 4.0f,
-    float maxDriftInches = 1.0f,
-    int turnPowerPercent = 16)
-{
-    const int minPulseMs = 70;
-    const int maxTurnPulseMs = 180;
-    const int settleMs = 150;
-
-    if(maxRCSRequests <= 0)
-    {
-        stopDriveMotors();
-        return false;
-    }
-
-    RCSPose originPose;
-    if(!getRCSPose(originPose))
-    {
-        stopDriveMotors();
-        return false;
-    }
-
-    RCSPose currentPose = originPose;
-
-    for(int request = 1; request < maxRCSRequests; request++)
-    {
-        const float headingError = signedHeadingError(targetHeading, currentPose.heading);
-        if(fabs(headingError) <= headingToleranceDegrees)
-        {
-            stopDriveMotors();
-            return true;
-        }
-
-        int turnPulseMs = (int)(fabs(headingError) * 3.0f);
-        if(turnPulseMs < minPulseMs)
-        {
-            turnPulseMs = minPulseMs;
-        }
-        if(turnPulseMs > maxTurnPulseMs)
-        {
-            turnPulseMs = maxTurnPulseMs;
-        }
-
-        pulseTurnForRCS(headingError, turnPowerPercent, turnPulseMs);
-        Sleep(settleMs);
-
-        RCSPose pose;
-        if(!getRCSPose(pose))
-        {
-            stopDriveMotors();
-            return false;
-        }
-
-        const float driftX = pose.x - originPose.x;
-        const float driftY = pose.y - originPose.y;
-        const float drift = sqrt((driftX * driftX) + (driftY * driftY));
-        if(drift > maxDriftInches)
-        {
-            stopDriveMotors();
-            return false;
-        }
-
-        currentPose = pose;
-    }
-
-    const float finalHeadingError = signedHeadingError(targetHeading, currentPose.heading);
-    stopDriveMotors();
-    return fabs(finalHeadingError) <= headingToleranceDegrees;
-}
-
 bool pulseToRCSPose(
     float targetX,
     float targetY,
@@ -599,101 +357,68 @@ bool pulseToRCSPose(
     return false;
 }
 
-void followLineBack(int drivePercent)
+bool pulseToRCSCheck(float targetX, float targetY, float targetHeading)
 {
+    return pulseToRCSPose(
+        targetX,
+        targetY,
+        targetHeading,
+        maxRCSRequestsPerCheck);
+}
 
-    int slowPercent = 0.15*drivePercent;
-    
+void clickBlueButton()
+{
+    moveBackward(3); // Back up from wall.
+    turnRight(45, 20);
+    moveForward(4);
+    turnLeft(45, 20);
+    moveForward(5);
+}
 
+void clickRedButton()
+{
+    moveBackward(3); // Back up from wall.
+    turnLeft(45, 20);
+    moveForward(4);
+    turnRight(45, 20);
+    moveForward(5);
+}
 
-    const int frontLeft = drivePercent;   // left motor spins negative to drive forward
-    const int frontRight = -drivePercent;   // right motor spins positive to drive forward
-    const int slowLeft = slowPercent;
-    const int slowRight = -slowPercent;
-
-    auto inRange = [](float value, float min, float max)
-    {
-        return value > min && value < max;
-    };
-
+void checkLight()
+{
     while(true)
     {
-        const float leftValue = leftOpto.Value();
-        const float middleValue = middleOpto.Value();
-        //const float rightValue = rightOpto.Value();
-        //right opto is broken
-
-        const bool leftOnWhite = inRange(leftValue, 2.0, 2.2);
-        const bool middleOnBlack = inRange(middleValue, 4.35, 4.55);
-        const bool leftOnGray = inRange(leftValue, 3.35, 3.65);
-        const bool leftOnBlack = inRange(leftValue, 4.1, 4.3);
-
-        
-
-        if(light_sensor.Value() < 0.75)
+        if(light_sensor.Value() < .6)
         {
-            leftMotor.Stop();
-            rightMotor.Stop();
+            clickRedButton();
+            isRed = true;
+            isBlue = false;
+
+            moveBackward(5);
+            turnRight(45,20);
+            moveBackward(4);
+            turnLeft(45,20);
+            moveForward(3);
+
+
+            break;
+
+        }
+        else if(light_sensor.Value() < 1.1)
+        {
+            clickBlueButton();
+            isBlue = true;
+            isRed = false;
+            
+            moveBackward(5);
+            turnLeft(45,20);
+            moveBackward(4);
+            turnRight(45,20);
+            moveForward(3);
             break;
         }
-
-        else if(leftOnWhite)
-        {
-            leftMotor.SetPercent(frontLeft);
-            rightMotor.SetPercent(frontRight);
-        }
-        else if(leftOnGray)
-        {
-            leftMotor.SetPercent(frontLeft);
-            rightMotor.SetPercent(slowRight);
-        }
-        else if (leftOnBlack)
-        {
-            leftMotor.SetPercent(slowLeft);
-            rightMotor.SetPercent(frontRight);
-        }
     }
-
-    leftMotor.Stop();
-    rightMotor.Stop();
-}
-
-void clickBlueButton(){
-    moveForward(3); // back up from wall
-    turnLeft45(20);
-    moveBackward(4);
-    turnRight45(20);
-    moveBackward(8);
-}
-void clickRedButton(){
-    moveForward(3); // back up from wall
-    turnRight45(20);
-    moveBackward(4);
-    turnLeft45(20);
-    moveBackward(8);
-}
-
-void checkLight(){
-    while (true) {
-       if(light_sensor.Value() < .6) {
-           clickRedButton();
-           isRed = true;
-           isBlue = false;
-           break;
-       }
-       else if(light_sensor.Value() < 1.1) {
-           clickBlueButton();
-           isBlue = true;
-           isRed = false;
-           break;
-       }
-   }
-   if (isRed) {
-       LCD.WriteLine("Red Light Detected!");
-   }
-   else if (isBlue) {
-       LCD.WriteLine("Blue Light Detected!");
-   }
+    
 }
 
 void turnComposterForward()
@@ -715,44 +440,72 @@ void ERCMain()
     RCS.InitializeTouchMenu("0300G2YKL");
     waitForTouchStart("Click the screen when you're ready for your OFFICIAL run.!");
 
-
     waitForStartLight();
-    leftMotor.SetPercent(-30);
-    rightMotor.SetPercent(30);
-    Sleep(750);
-    leftMotor.Stop();
-    rightMotor.Stop();
-    moveForward(3);
-    turnRight(50, 40);
+
+    backUpToHitButton();
+    turnLeft(90);
     moveBackward(5);
-    turnRight(85, 40);
-    moveBackward(7.5);
+    moveForward(3);
+
+    // No RCS check here: composter is in the RCS deadzone.
+    moveForward(2);
     turnComposterForward();
-    Sleep(1500);
     turnComposterBackward();
-    moveForward(13);
+    moveBackward(4);
+    turnRight(90);
+    moveBackward(13);
+    turnRight(135);
+    moveForward(5);
+    turnLeft(45);
+    moveForward(3);
 
+    // RCS check: apple bucket.
+    pulseToRCSCheck(10.33f, 20.15f, 90.0f);
+    moveLiftUp(6.0); // Example apple bucket height value. Replace with your measured value.
+    moveForward(2);
+    moveLiftUp(); // Lift up max.
+    moveBackward(8);
+    turnRight(45);
+    moveBackward(10);
+    turnRight(90);
+    moveForward(9.5); // Line up with ramp.
+    turnLeft(45);
+    moveForward(14);
 
+    // RCS check: ramp.
+    pulseToRCSCheck(30.45f, 44.68f, 180.0f);
+    turnLeft(90);
+    moveForward(18); // Open window.
+    moveBackward(9);
+    turnRight(90);
+    moveBackward(17.5);
+    turnLeft(90);
 
-    /** 
-    
-    
+    // RCS check: tall table.
+    pulseToRCSCheck(25.80f, 63.54f, 270.0f);
+    moveForward(2);
+    moveLiftDown(4.0); // Example table/bucket height value. Replace with the measured value.
     moveBackward(3);
-    turnComposterForward();
-    Sleep(5000);
-    turnComposterBackward();
-    moveBackward(8); //sldfjlkdfsj
-    turnLeft(50, 40); 
-    moveBackward(3);
-    turnRight(50,40);
-    moveBackward(3);
-    moveForward(1);
-    */
+    turnLeft(45);
+    moveBackward(10);
+    turnLeft(90);
 
-    
+    // RCS check: middle of levers.
+    pulseToRCSCheck(18.10f, 59.16f, 45.0f);
+    // Do levers.
+    turnLeft(135);
+    moveForward(9);
 
+    // RCS check: parallel with line of humidifier.
+    pulseToRCSCheck(20.19f, 51.35f, 180.0f);
+    turnRight(90);
+    moveForward(6);
 
-
-
-    
+    // RCS check: line up with CdS cell.
+    pulseToRCSCheck(13.00f, 50.82f, 90.0f);
+    checkLight();// Do humidifier.
+    turnRight(180);
+    moveBackward(17);
+    turnLeft(90);
+    moveBackward(36);
 }
