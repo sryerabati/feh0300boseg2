@@ -134,15 +134,6 @@ void moveForward(float distanceInches, int powerPercent = 40)
 
 }
 
-void backUpToHitButton(int powerPercent = 30, int durationMs = 750)
-{
-    leftMotor.SetPercent(-powerPercent);
-    rightMotor.SetPercent(powerPercent);
-    Sleep(durationMs);
-    leftMotor.Stop();
-    rightMotor.Stop();
-}
-
 void turnRight(int angle, int percent = 40)
 {
     //Reset encoder counts
@@ -421,6 +412,46 @@ void checkLight()
     
 }
 
+void checkLevers(){
+    int correctLever = 1; //default to middle lever because we want to.
+    
+    if (correctLever == 0) // Left lever
+    {
+        turnLeft(45, 20);
+        moveForward(6);
+        moveLiftDown(7);
+        moveBackward(2);
+        moveLiftDown(3);
+        moveForward(2);
+        moveLiftUp();
+        moveBackward(6);
+        turnRight(45,20);
+
+    }
+    else if (correctLever == 1) // Middle lever
+    {
+        moveForward(4);
+        moveLiftDown(7);
+        moveBackward(2);
+        moveLiftDown(3);
+        moveForward(2);
+        moveLiftUp();
+        moveBackward(4);
+    }
+    else if (correctLever == 2) // Right lever
+    {
+        turnRight(45, 20);
+        moveForward(6);
+        moveLiftDown(7);
+        moveBackward(2);
+        moveLiftDown(3);
+        moveForward(2);
+        moveLiftUp();
+        moveBackward(6);
+        turnLeft(45,20);
+    }
+}
+
 void turnComposterForward()
 {
     composterServo.SetDegree(126);
@@ -437,43 +468,53 @@ void turnComposterBackward()
 
 void ERCMain()
 {
-    RCS.InitializeTouchMenu("0300G2YKL");
+
+    RCS.InitializeTouchMenu("30300G2YKL");
     waitForTouchStart("Click the screen when you're ready for your OFFICIAL run.!");
 
     waitForStartLight();
 
-    backUpToHitButton();
-    turnLeft(90);
-    moveBackward(5);
+    //backing up to hit button
+    leftMotor.SetPercent(-30);
+    rightMotor.SetPercent(30);
+    Sleep(750);
+    leftMotor.Stop();
+    rightMotor.Stop();
+    Sleep(100);
+    
     moveForward(3);
+    
+    turnRight(90);
+    moveBackward(6);
+    turnRight(45);
+    moveBackward(3);
 
     // No RCS check here: composter is in the RCS deadzone.
-    moveForward(2);
     turnComposterForward();
     turnComposterBackward();
-    moveBackward(4);
+    moveForward(4);
     turnRight(90);
-    moveBackward(13);
+    moveBackward(11);
     turnRight(135);
-    moveForward(5);
-    turnLeft(45);
-    moveForward(3);
+    moveForward(4.5);
+    turnLeft(50);
+    moveForward(6);
 
     // RCS check: apple bucket.
-    pulseToRCSCheck(10.33f, 20.15f, 90.0f);
-    moveLiftUp(6.0); // Example apple bucket height value. Replace with your measured value.
-    moveForward(2);
+    //pulseToRCSCheck(10.33f, 20.15f, 90.0f);
+    moveLiftUp(4.7); // Example apple bucket height value. Replace with your measured value.
+    moveForward(6);
     moveLiftUp(); // Lift up max.
     moveBackward(8);
     turnRight(45);
-    moveBackward(10);
+    moveBackward(11);
     turnRight(90);
-    moveForward(9.5); // Line up with ramp.
-    turnLeft(45);
-    moveForward(14);
+    moveForward(8); // Line up with ramp.
+    turnLeft(55);
+    moveForward(14, 60);
 
     // RCS check: ramp.
-    pulseToRCSCheck(30.45f, 44.68f, 180.0f);
+    //pulseToRCSCheck(30.45f, 44.68f, 180.0f);
     turnLeft(90);
     moveForward(18); // Open window.
     moveBackward(9);
@@ -492,7 +533,7 @@ void ERCMain()
 
     // RCS check: middle of levers.
     pulseToRCSCheck(18.10f, 59.16f, 45.0f);
-    // Do levers.
+    checkLevers();
     turnLeft(135);
     moveForward(9);
 
