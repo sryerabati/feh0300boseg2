@@ -22,7 +22,7 @@ FEHServo composterServo(FEHServo::Servo1);
 boolean isRed = false;
 boolean isBlue = false;
 
-const int maxRCSRequestsPerCheck = 6; // 6 checks * 6 requests = 36 max RCS calls, leaving 14 calls of buffer.
+const int maxRCSRequestsPerCheck = 6; // Use the full RCS budget for heading fine-tuning.
 
 int liftUp = 112;
 int liftStop = 82;
@@ -271,6 +271,7 @@ bool pulseToRCSPose(
     const int maxDrivePulseMs = 220;
     const int maxTurnPulseMs = 180;
     const int settleMs = 150;
+    bool inTolerance = false;
 
     for(int request = 0; request < maxRCSRequests; request++)
     {
@@ -287,6 +288,7 @@ bool pulseToRCSPose(
 
         if(distance > toleranceInches)
         {
+            inTolerance = false;
             const float targetDriveHeading = headingTowardCoordinate(dx, dy);
             const float driveHeadingError = signedHeadingError(targetDriveHeading, pose.heading);
 
@@ -324,37 +326,140 @@ bool pulseToRCSPose(
             const float finalHeadingError = signedHeadingError(targetHeading, pose.heading);
             if(fabs(finalHeadingError) <= headingToleranceDegrees)
             {
+                inTolerance = true;
                 stopDriveMotors();
-                return true;
             }
-
-            int turnPulseMs = (int)(fabs(finalHeadingError) * 3.0f);
-            if(turnPulseMs < minPulseMs)
+            else
             {
-                turnPulseMs = minPulseMs;
-            }
-            if(turnPulseMs > maxTurnPulseMs)
-            {
-                turnPulseMs = maxTurnPulseMs;
-            }
+                inTolerance = false;
+                int turnPulseMs = (int)(fabs(finalHeadingError) * 3.0f);
+                if(turnPulseMs < minPulseMs)
+                {
+                    turnPulseMs = minPulseMs;
+                }
+                if(turnPulseMs > maxTurnPulseMs)
+                {
+                    turnPulseMs = maxTurnPulseMs;
+                }
 
-            pulseTurnForRCS(finalHeadingError, turnPowerPercent, turnPulseMs);
+                pulseTurnForRCS(finalHeadingError, turnPowerPercent, turnPulseMs);
+            }
         }
 
         Sleep(settleMs);
     }
 
     stopDriveMotors();
-    return false;
+    return inTolerance;
 }
 
-bool pulseToRCSCheck(float targetX, float targetY, float targetHeading)
+bool pulseToRCSCheck(float targetHeading, int maxRequests = maxRCSRequestsPerCheck)
 {
-    return pulseToRCSPose(
-        targetX,
-        targetY,
-        targetHeading,
-        maxRCSRequestsPerCheck);
+    if(maxRequests <= 0)
+    {
+        return true;
+    }
+
+    const float headingToleranceDegrees = 4.0f;
+    const int minPulseMs = 12;
+    const int maxPulseMs = 180;
+    const int settleMs = 120;
+    const int turnPowerPercent = 16;
+    bool inTolerance = false;
+
+    for(int request = 0; request < maxRequests; request++)
+    {
+        RCSPose pose;
+        if(!getRCSPose(pose))
+        {
+            stopDriveMotors();
+            return false;
+        }
+
+        const float headingError = signedHeadingError(targetHeading, pose.heading);
+        if(fabs(headingError) <= headingToleranceDegrees)
+        {
+            inTolerance = true;
+            stopDriveMotors();
+        }
+        else
+        {
+            inTolerance = false;
+            float pulseScale;
+            if(maxRequests >= 6)
+            {
+                if(request < 2)
+                {
+                    pulseScale = 1.0f;
+                }
+                else if(request < 4)
+                {
+                    pulseScale = 0.55f;
+                }
+                else
+                {
+                    pulseScale = 0.15f;
+                }
+            }
+            else if(maxRequests <= 1)
+            {
+                pulseScale = 1.0f;
+            }
+            else
+            {
+                const float progress = (float)request / (float)(maxRequests - 1);
+                pulseScale = 1.0f - (0.75f * progress);
+            }
+
+            int turnPulseMs = (int)(fabs(headingError) * 3.0f * pulseScale);
+            if(turnPulseMs < minPulseMs)
+            {
+                turnPulseMs = minPulseMs;
+            }
+            if(turnPulseMs > maxPulseMs)
+            {
+                turnPulseMs = maxPulseMs;
+            }
+
+            pulseTurnForRCS(headingError, turnPowerPercent, turnPulseMs);
+        }
+
+        Sleep(settleMs);
+    }
+
+    stopDriveMotors();
+    return inTolerance;
+}
+
+float normalizeHeadingDegrees(float heading)
+{
+    while(heading < 0.0f)
+    {
+        heading += 360.0f;
+    }
+
+    while(heading >= 360.0f)
+    {
+        heading -= 360.0f;
+    }
+
+    return heading;
+}
+
+void turnLeftTracked(float &expectedHeading, int angle, int percent = 40, int rcsChecks = maxRCSRequestsPerCheck)
+{
+    turnLeft(angle, percent);
+    expectedHeading = normalizeHeadingDegrees(expectedHeading + angle);
+
+    pulseToRCSCheck(expectedHeading, rcsChecks);
+}
+
+void turnRightTracked(float &expectedHeading, int angle, int percent = 40, int rcsChecks = maxRCSRequestsPerCheck)
+{
+    turnRight(angle, percent);
+    expectedHeading = normalizeHeadingDegrees(expectedHeading - angle);
+
+    pulseToRCSCheck(expectedHeading, rcsChecks);
 }
 
 void clickBlueButton()
@@ -377,8 +482,16 @@ void clickRedButton()
 
 void checkLight()
 {
+    const unsigned long timeoutMs = 5000;
+    const unsigned long startMs = millis();
+
     while(true)
     {
+        if(millis() - startMs > timeoutMs)
+        {
+            break;
+        }
+
         if(light_sensor.Value() < .6)
         {
             clickRedButton();
@@ -398,7 +511,6 @@ void checkLight()
         else if(light_sensor.Value() < 1.1)
         {
             clickBlueButton();
-            isBlue = true;
             isRed = false;
             
             moveBackward(5);
@@ -408,6 +520,8 @@ void checkLight()
             moveForward(3);
             break;
         }
+
+        Sleep(10);
     }
     
 }
@@ -455,15 +569,48 @@ void checkLevers(){
 void turnComposterForward()
 {
     composterServo.SetDegree(126);
-    Sleep(1500);
+    Sleep(5000);
     composterServo.SetDegree(88);
 }
 
 void turnComposterBackward()
 {
     composterServo.SetDegree(50);
-    Sleep(1500);
+    Sleep(5000);
     composterServo.SetDegree(88);
+}
+
+void randomDriveSequence(int moveCount = 6)
+{
+    randomSeed(millis());
+
+    for(int move = 0; move < moveCount; move++)
+    {
+        int angle = random(30, 91);
+        int distance = random(3, 9);
+
+        if(random(0, 2) == 0)
+        {
+            turnLeft(angle, 30);
+        }
+        else
+        {
+            turnRight(angle, 30);
+        }
+
+        Sleep(100);
+
+        if(random(0, 2) == 0)
+        {
+            moveForward(distance, 30);
+        }
+        else
+        {
+            moveBackward(distance, 30);
+        }
+
+        Sleep(100);
+    }
 }
 
 void ERCMain()
@@ -481,72 +628,92 @@ void ERCMain()
     leftMotor.Stop();
     rightMotor.Stop();
     Sleep(100);
+
+    float expectedHeading = 45.0f;
     
+
+    moveForward(18);
+    Sleep(100);
+
+    turnLeftTracked(expectedHeading, 45, 40, 6);
+    moveForward(5.5);
+
+    moveLiftDown(distanceToLift);
+    Sleep(300);
+    moveLiftUp(4.6);
     moveForward(3);
-    
-    turnRight(90);
-    moveBackward(6);
-    turnRight(45);
-    moveBackward(3);
+    moveLiftUp(9);
+    //finish apple bucket
 
-    // No RCS check here: composter is in the RCS deadzone.
-    turnComposterForward();
+    //move to cpomster
+    moveBackward(7);
+    turnRightTracked(expectedHeading, 45);
+    moveBackward(11);
+    turnRightTracked(expectedHeading, 45);
+    moveBackward(4.3);
+    turnRightTracked(expectedHeading, 90);
+    moveBackward(4.07);
+    //lined up with composter hopefully
     turnComposterBackward();
-    moveForward(4);
-    turnRight(90);
-    moveBackward(11);
-    turnRight(135);
-    moveForward(4.5);
-    turnLeft(50);
-    moveForward(6);
+    Sleep(500);
+    turnComposterForward();
+    //turncomposter n shi
 
-    // RCS check: apple bucket.
-    //pulseToRCSCheck(10.33f, 20.15f, 90.0f);
-    moveLiftUp(4.7); // Example apple bucket height value. Replace with your measured value.
-    moveForward(6);
-    moveLiftUp(); // Lift up max.
-    moveBackward(8);
-    turnRight(45);
-    moveBackward(11);
-    turnRight(90);
-    moveForward(8); // Line up with ramp.
-    turnLeft(55);
-    moveForward(14, 60);
 
-    // RCS check: ramp.
-    //pulseToRCSCheck(30.45f, 44.68f, 180.0f);
-    turnLeft(90);
-    moveForward(18); // Open window.
-    moveBackward(9);
-    turnRight(90);
-    moveBackward(17.5);
-    turnLeft(90);
 
-    // RCS check: tall table.
-    pulseToRCSCheck(25.80f, 63.54f, 270.0f);
-    moveForward(2);
-    moveLiftDown(4.0); // Example table/bucket height value. Replace with the measured value.
-    moveBackward(3);
-    turnLeft(45);
+    moveForward(7);
+    turnLeftTracked(expectedHeading, 45);
+    moveForward(5);
+    turnLeftTracked(expectedHeading, 45);
+
+    moveForward(36, 60);
+    Sleep(100);
+    turnRightTracked(expectedHeading, 90, 40);
+    Sleep(100);
+
     moveBackward(10);
-    turnLeft(90);
+    Sleep(100);
+    turnLeftTracked(expectedHeading, 90, 40);
+    Sleep(100);
+    
+    moveForward(11);
+    
+    Sleep(100);
+    turnRightTracked(expectedHeading, 85, 40);
+    Sleep(100);
 
-    // RCS check: middle of levers.
-    pulseToRCSCheck(18.10f, 59.16f, 45.0f);
-    checkLevers();
-    turnLeft(135);
-    moveForward(9);
+    moveForward(7); //change back to 5
+    moveLiftDown(1);
+    Sleep(100);
+    turnLeftTracked(expectedHeading, 90, 40);
+    Sleep(100);
 
-    // RCS check: parallel with line of humidifier.
-    pulseToRCSCheck(20.19f, 51.35f, 180.0f);
-    turnRight(90);
-    moveForward(6);
+    moveBackward(11);
+    Sleep(100);
+    turnLeftTracked(expectedHeading, 45, 40);
+    Sleep(100);
 
-    // RCS check: line up with CdS cell.
-    pulseToRCSCheck(13.00f, 50.82f, 90.0f);
-    checkLight();// Do humidifier.
-    turnRight(180);
-    moveBackward(17);
-    turnLeft(90);
-    moveBackward(36);
+    moveForward(22);
+    moveLiftDown(distanceToLift);
+    moveBackward(5);
+    moveForward(5);
+    moveLiftUp(distanceToLift);
+    Sleep(100);
+
+    moveBackward(10);
+    turnLeftTracked(expectedHeading, 45);
+    moveForward(5);
+    checkLight();
+    Sleep(100);
+
+    moveBackward(5);
+    turnRightTracked(expectedHeading, 180);
+    moveForward(7);
+    turnRightTracked(expectedHeading, 90);
+    moveForward(25);
+    Sleep(400);
+
+    randomDriveSequence();
+
+    
 }
