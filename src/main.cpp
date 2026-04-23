@@ -23,6 +23,10 @@ boolean isRed = false;
 boolean isBlue = false;
 
 const int maxRCSRequestsPerCheck = 6; // Use the full RCS budget for heading fine-tuning.
+const unsigned long rcsPoseTimeoutMs = 700;
+const int rcsPollDelayMs = 20;
+const unsigned long moveForwardTimeoutMs = 10000;
+const unsigned long turnTimeoutMs = 5000;
 
 int liftUp = 112;
 int liftStop = 82;
@@ -127,7 +131,15 @@ void moveForward(float distanceInches, int powerPercent = 40)
     int distanceCounts = (distanceInches * 318)/7.85; // Convert inches to encoder counts
     rightMotor.SetPercent(direction * powerPercent);
     leftMotor.SetPercent(-1* direction * powerPercent);
-    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < distanceCounts);
+    const unsigned long startMs = millis();
+    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < distanceCounts)
+    {
+        if(millis() - startMs > moveForwardTimeoutMs)
+        {
+            break;
+        }
+        Sleep(10);
+    }
  
     leftMotor.Stop();
     rightMotor.Stop();
@@ -150,9 +162,17 @@ void turnRight(int angle, int percent = 40)
     //hint: set right motor backwards, left motor forwards
     rightMotor.SetPercent(percent);
     leftMotor.SetPercent(percent);
+    const unsigned long startMs = millis();
     //While the average of the left and right encoder is less than counts,
     //keep running motors
-    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);  
+    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts)
+    {
+        if(millis() - startMs > turnTimeoutMs)
+        {
+            break;
+        }
+        Sleep(10);
+    }
 
     //Turn off motors
     rightMotor.Stop();
@@ -175,9 +195,17 @@ void turnLeft(int angle, int percent = 40)
     //hint: set right motor backwards, left motor forwards
     rightMotor.SetPercent(-1 * percent);
     leftMotor.SetPercent(-1 * percent);
+    const unsigned long startMs = millis();
     //While the average of the left and right encoder is less than counts,
     //keep running motors
-    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts);  
+    while((left_encoder.Counts() + right_encoder.Counts()) / 2. < counts)
+    {
+        if(millis() - startMs > turnTimeoutMs)
+        {
+            break;
+        }
+        Sleep(10);
+    }
 
     //Turn off motors
     rightMotor.Stop();
@@ -216,14 +244,25 @@ float headingTowardCoordinate(float dx, float dy)
 
 bool getRCSPose(RCSPose &pose)
 {
-    RCSPose *latestPose = RCS.RequestPosition(true);
-    if(latestPose == nullptr)
+    const unsigned long startMs = millis();
+
+    while(millis() - startMs < rcsPoseTimeoutMs)
     {
-        return false;
+        // Non-blocking poll prevents the robot from hanging when RCS cannot see the code.
+        RCSPose *latestPose = RCS.RequestPosition(false);
+        if(latestPose != nullptr)
+        {
+            pose = *latestPose;
+            if(pose.x >= 0.0f && pose.y >= 0.0f && pose.heading >= 0.0f)
+            {
+                return true;
+            }
+        }
+
+        Sleep(rcsPollDelayMs);
     }
 
-    pose = *latestPose;
-    return pose.x >= 0.0f && pose.y >= 0.0f && pose.heading >= 0.0f;
+    return false;
 }
 
 void stopDriveMotors()
@@ -431,6 +470,36 @@ bool pulseToRCSCheck(float targetHeading, int maxRequests = maxRCSRequestsPerChe
     return inTolerance;
 }
 
+bool quickRCSYDirectionCheck(float targetX, float targetY, float targetHeading)
+{
+    RCSPose pose;
+    if(!getRCSPose(pose))
+    {
+        return false;
+    }
+
+    const float yError = targetY - pose.y;
+    const float xError = targetX - pose.x;
+    const float yToleranceInches = 0.6f;
+    const float xToleranceInches = 1.6f;
+
+    if(fabs(yError) <= yToleranceInches && fabs(xError) <= xToleranceInches)
+    {
+        return true;
+    }
+
+    // Keep this check quick: only a couple pulses to bias motion toward the target lane.
+    return pulseToRCSPose(
+        targetX,
+        targetY,
+        targetHeading,
+        2,
+        1.0f,
+        6.0f,
+        16,
+        14);
+}
+
 float normalizeHeadingDegrees(float heading)
 {
     while(heading < 0.0f)
@@ -485,10 +554,11 @@ void checkLight()
     const unsigned long timeoutMs = 5000;
     const unsigned long startMs = millis();
 
+    boolean notFound = false;
     while(true)
     {
         if(millis() - startMs > timeoutMs)
-        {
+        {   notFound = true;
             break;
         }
 
@@ -512,7 +582,16 @@ void checkLight()
         {
             clickBlueButton();
             isRed = false;
-            
+            isBlue = true;
+
+            moveBackward(5);
+            turnLeft(45,20);
+            moveBackward(4);
+            turnRight(45,20);
+            moveForward(3);
+            break;
+        }
+        else if (notFound){
             moveBackward(5);
             turnLeft(45,20);
             moveBackward(4);
@@ -568,16 +647,16 @@ void checkLevers(){
 
 void turnComposterForward()
 {
-    composterServo.SetDegree(126);
+    composterServo.SetDegree(180);
     Sleep(5000);
-    composterServo.SetDegree(88);
+    composterServo.SetDegree(86);
 }
 
 void turnComposterBackward()
 {
-    composterServo.SetDegree(50);
+    composterServo.SetDegree(0);
     Sleep(5000);
-    composterServo.SetDegree(88);
+    composterServo.SetDegree(86);
 }
 
 void randomDriveSequence(int moveCount = 6)
@@ -614,7 +693,7 @@ void randomDriveSequence(int moveCount = 6)
 }
 
 void ERCMain()
-{
+{ 
 
     RCS.InitializeTouchMenu("30300G2YKL");
     waitForTouchStart("Click the screen when you're ready for your OFFICIAL run.!");
@@ -624,7 +703,7 @@ void ERCMain()
     //backing up to hit button
     leftMotor.SetPercent(-30);
     rightMotor.SetPercent(30);
-    Sleep(750);
+    Sleep(650);
     leftMotor.Stop();
     rightMotor.Stop();
     Sleep(100);
@@ -632,15 +711,16 @@ void ERCMain()
     float expectedHeading = 45.0f;
     
 
-    moveForward(18);
+    moveForward(18.7); //linup before turn
     Sleep(100);
 
-    turnLeftTracked(expectedHeading, 45, 40, 6);
-    moveForward(5.5);
-
+    turnLeftTracked(expectedHeading, 45, 40, 5);
     moveLiftDown(distanceToLift);
+    moveForward(5.1);
+
     Sleep(300);
-    moveLiftUp(4.6);
+    moveLiftUp(4.7);
+    quickRCSYDirectionCheck(10.33f, 20.15f, expectedHeading);
     moveForward(3);
     moveLiftUp(9);
     //finish apple bucket
@@ -650,20 +730,21 @@ void ERCMain()
     turnRightTracked(expectedHeading, 45);
     moveBackward(11);
     turnRightTracked(expectedHeading, 45);
-    moveBackward(4.3);
-    turnRightTracked(expectedHeading, 90);
-    moveBackward(4.07);
+    moveBackward(3.70);
+    turnRightTracked(expectedHeading, 90, 40);
+    moveBackward(3.5);
     //lined up with composter hopefully
     turnComposterBackward();
     Sleep(500);
+
     turnComposterForward();
     //turncomposter n shi
 
 
 
-    moveForward(7);
+    moveForward(6);
     turnLeftTracked(expectedHeading, 45);
-    moveForward(5);
+    moveForward(5.5);
     turnLeftTracked(expectedHeading, 45);
 
     moveForward(36, 60);
@@ -676,7 +757,7 @@ void ERCMain()
     turnLeftTracked(expectedHeading, 90, 40);
     Sleep(100);
     
-    moveForward(11);
+    moveForward(14);
     
     Sleep(100);
     turnRightTracked(expectedHeading, 85, 40);
@@ -693,7 +774,7 @@ void ERCMain()
     turnLeftTracked(expectedHeading, 45, 40);
     Sleep(100);
 
-    moveForward(22);
+    moveForward(24);
     moveLiftDown(distanceToLift);
     moveBackward(5);
     moveForward(5);
@@ -702,7 +783,7 @@ void ERCMain()
 
     moveBackward(10);
     turnLeftTracked(expectedHeading, 45);
-    moveForward(5);
+    moveForward(7);
     checkLight();
     Sleep(100);
 
