@@ -554,6 +554,7 @@ void checkLight()
     const unsigned long timeoutMs = 5000;
     const unsigned long startMs = millis();
 
+
     boolean notFound = false;
     while(true)
     {
@@ -719,10 +720,10 @@ void ERCMain()
     moveForward(5.1);
 
     Sleep(300);
-    moveLiftUp(4.7);
+    moveLiftUp(4.6);
     quickRCSYDirectionCheck(10.33f, 20.15f, expectedHeading);
-    moveForward(3);
-    moveLiftUp(9);
+    moveForward(2.9);
+    moveLiftUp(11);
     //finish apple bucket
 
     //move to cpomster
@@ -731,8 +732,8 @@ void ERCMain()
     moveBackward(11);
     turnRightTracked(expectedHeading, 45);
     moveBackward(3.70);
-    turnRightTracked(expectedHeading, 90, 40);
-    moveBackward(3.5);
+    turnRightTracked(expectedHeading, 88, 40);
+    moveBackward(3.6);
     //lined up with composter hopefully
     turnComposterBackward();
     Sleep(500);
@@ -757,14 +758,19 @@ void ERCMain()
     turnLeftTracked(expectedHeading, 90, 40);
     Sleep(100);
     
-    moveForward(14);
+    moveForward(12);
+    pulseToRCSPose(24.40f, 62.64f, expectedHeading, 3, 0.5f, 4.0f, 18, 16);
+    Sleep(100);
     
     Sleep(100);
     turnRightTracked(expectedHeading, 85, 40);
     Sleep(100);
 
+    // place apple bucket on table
     moveForward(7); //change back to 5
-    moveLiftDown(1);
+    moveLiftDown(1.2);
+    Sleep(100);
+    moveBackward(3);
     Sleep(100);
     turnLeftTracked(expectedHeading, 90, 40);
     Sleep(100);
@@ -774,27 +780,59 @@ void ERCMain()
     turnLeftTracked(expectedHeading, 45, 40);
     Sleep(100);
 
-    moveForward(24);
+    // lever sequence
+    moveForward(17);
     moveLiftDown(distanceToLift);
     moveBackward(5);
     moveForward(5);
     moveLiftUp(distanceToLift);
     Sleep(100);
 
-    moveBackward(10);
+    // humidifier
+    moveBackward(16);
+    pulseToRCSPose(26.90f, 50.73f, expectedHeading, 3, 0.5f, 4.0f, 18, 16);
     turnLeftTracked(expectedHeading, 45);
-    moveForward(7);
-    checkLight();
+    moveForward(8);
+
+    //checkLight();
+    //checklight's blue default
+    moveForward(5);
+    turnLeftTracked(expectedHeading, 45);
+    moveForward(4);
+    turnRightTracked(expectedHeading, 45);
+    moveForward(3);
     Sleep(100);
 
+    // window
+    moveBackward(20);
+    turnLeftTracked(expectedHeading, 225);
+    moveBackward(3);
+    turnRightTracked(expectedHeading, 45);
+    moveBackward(15);
+    moveForward(17);
+    Sleep(100);
+
+
+    // hit final button
+    turnRightTracked(expectedHeading, 90);
+    moveForward(20);
+    Sleep(100);
+
+    randomDriveSequence();
+
+
+    // SHREYAS MAKE COMMENTS ON UR CODE BOSS
+
+    /*
     moveBackward(5);
     turnRightTracked(expectedHeading, 180);
     moveForward(7);
     turnRightTracked(expectedHeading, 90);
     moveForward(25);
     Sleep(400);
+    */
 
-    randomDriveSequence();
+    
 
     
 }
